@@ -28,7 +28,7 @@ The **Pitch History trail** visualises your pitch in real time while you sing. T
 VocalRange is a vanilla JS SPA without a build step.
 
 ```
-VoiceCrackPublic/
+VocalRange/
 ├── index.html               — App shell, service worker registration
 ├── style.css                — Vocal Luminescence design system
 ├── manifest.json            — PWA manifest
