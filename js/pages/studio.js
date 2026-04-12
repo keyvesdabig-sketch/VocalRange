@@ -58,6 +58,10 @@ const HTML = /* html */`
             </header>
 
             <!-- Pitch trail canvas — builds up during recording, persists after -->
+            <div class="trail-header">
+                <span class="section-label" style="margin-bottom:0">Pitch History</span>
+                <span class="trail-hint">sing to see your trail</span>
+            </div>
             <div class="trail-wrap">
                 <canvas id="pitchTrailCanvas" aria-label="Pitch history trail"></canvas>
             </div>
