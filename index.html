@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceCrack – Vocal Range Analyzer</title>
+
+    <!-- PWA & Mobile -->
+    <link rel="manifest" href="manifest.json">
+    <!-- theme-color: read at parse time; IDE warning is a known harmless false positive. -->
+    <meta name="theme-color" content="#07080d">
+    <meta name="color-scheme" content="dark">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="favicon.svg">
+
+    <!-- SEO -->
+    <meta name="description" content="Find your voice type in seconds. Sing into your microphone — VoiceCrack analyzes your vocal range using the YIN pitch detection algorithm.">
+    <meta property="og:title" content="VoiceCrack – Vocal Range Analyzer">
+    <meta property="og:description" content="Discover whether you're a Bass, Baritone, Tenor or Countertenor. No account needed.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary">
+
+    <!-- Fonts: Space Grotesk (display) + Inter (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ═══════════════════════════════════════════════════════
+           SIGNAL DARK — Design System
+           VoiceCrack 2.0
+           ═══════════════════════════════════════════════════════ */
+
+        :root {
+            --bg:          #07080d;
+            --surf:        #0c0f18;
+            --card:        #0f1320;
+            --border:      rgba(255, 255, 255, 0.05);
+            --border-cyan: rgba(0, 229, 255, 0.14);
+
+            --cyan:   #00e5ff;
+            --mint:   #00ffa3;
+            --indigo: #6366f1;
+            --red:    #ff4d6a;
+            --amber:  #fbbf24;
+
+            --text-hi:  #e2e8f5;
+            --text-mid: #7a8899;
+            --text-lo:  #32394a;
+
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body:    'Inter', sans-serif;
+
+            --radius:    16px;
+            --radius-sm: 10px;
+            --radius-xs: 7px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { height: 100%; }
+
+        body {
+            min-height: 100%;
+            background: var(--bg);
+            font-family: var(--font-body);
+            color: var(--text-hi);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 16px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ── Ambient background glow orbs ──────────────────────── */
+        body::before,
+        body::after {
+            content: '';
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::before {
+            width: 700px; height: 700px;
+            top: -250px; left: -200px;
+            background: radial-gradient(circle, rgba(0,229,255,0.045) 0%, transparent 65%);
+        }
+        body::after {
+            width: 600px; height: 600px;
+            bottom: -180px; right: -180px;
+            background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 65%);
+        }
+
+        /* ── Main card ──────────────────────────────────────────── */
+        #mainCard {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 880px;
+            background: rgba(11, 14, 22, 0.88);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid var(--border-cyan);
+            border-radius: var(--radius);
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.018) inset,
+                0 32px 96px rgba(0,0,0,0.7),
+                0 0 48px rgba(0,229,255,0.025);
+            overflow: hidden;
+        }
+
+        /* ── Two-column grid ───────────────────────────────────── */
+        .app-grid {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            min-height: 580px;
+        }
+
+        /* ══════════════════════════════════════════════════════════
+           LEFT COLUMN — Pitch Meter
+           ══════════════════════════════════════════════════════════ */
+        #pitchColumn {
+            background: rgba(5, 7, 12, 0.7);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 28px 0 28px;
+        }
+
+        /* Brand mark */
+        .brand-mark {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px; height: 42px;
+            background: rgba(0, 229, 255, 0.06);
+            border: 1px solid rgba(0, 229, 255, 0.14);
+            border-radius: 11px;
+            margin-bottom: 24px;
+            flex-shrink: 0;
+        }
+        .brand-mark img { width: 24px; height: 24px; }
+
+        /* Pitch bar wrapper */
+        .pitch-bar-wrap {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            padding: 0 44px; /* room for labels */
+            position: relative;
+        }
+
+        /* ── Pitch Bar ─────────────────────────────────────────── */
+        /*
+         * MIDI display range: A1(33) – G5(79), 46 semitones.
+         * Gradient: Indigo (deep/low) → Cyan (mid) → Mint (high).
+         * pos% = (midi − 33) / 46
+         */
+        #pitchBar {
+            width: 48px;
+            border-radius: var(--radius-xs);
+            background: linear-gradient(
+                to top,
+                #4f46e5  0%,
+                #00e5ff 55%,
+                #00ffa3 100%
+            );
+            position: relative;
+        }
+
+        /* Zone-unlock overlays — retreat as range is revealed */
+        .pitch-overlay {
+            position: absolute;
+            left: 0; right: 0;
+            background: var(--surf);
+            transition: height 0.35s ease-out;
+            z-index: 2;
+        }
+        #overlayBottom { bottom: 0; height: 100%; }
+        #overlayTop    { top:    0; height: 100%; }
+
+        /* Live pitch dot — glowing cyan circle */
+        #pitchDot {
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            width: 17px; height: 17px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 10px var(--cyan), 0 0 22px rgba(0,229,255,0.45);
+            transform: translateX(-50%) translateY(50%);
+            opacity: 0;
+            transition: opacity 0.2s, background 0.25s, box-shadow 0.25s;
+            will-change: transform;
+            z-index: 10;
+        }
+        #pitchDot.active { opacity: 1; }
+        #pitchDot.silent { background: #1e2535; box-shadow: none; opacity: 0.5; }
+
+        /* Min / Max markers */
+        .pitch-marker {
+            position: absolute;
+            left: -3px; right: -3px;
+            height: 2px;
+            border-radius: 2px;
+            transform: translateY(50%);
+            transition: bottom 0.15s ease-out;
+            z-index: 5;
+        }
+        .marker-min { background: var(--red);  box-shadow: 0 0 7px rgba(255,77,106,0.55); }
+        .marker-max { background: var(--mint); box-shadow: 0 0 7px rgba(0,255,163,0.55); }
+
+        /* Note labels — left of bar */
+        .note-label {
+            position: absolute;
+            right: calc(100% + 7px);
+            transform: translateY(50%);
+            font-size: 8px;
+            font-weight: 700;
+            color: var(--text-lo);
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+            line-height: 1;
+            z-index: 8;
+        }
+        /* Positions — MIDI range 33–79 (46 ST), pos = (midi−33)/46 */
+        .note-g5 { bottom: 100%;  } /* MIDI 79 */
+        .note-c5 { bottom: 84.8%; } /* MIDI 72 */
+        .note-c4 { bottom: 58.7%; } /* MIDI 60 */
+        .note-c3 { bottom: 32.6%; } /* MIDI 48 */
+        .note-c2 { bottom:  6.5%; } /* MIDI 36 */
+        .note-a1 { bottom:  0%;   } /* MIDI 33 */
+
+        /* Mini piano decorators */
+        #pianoBar {
+            position: absolute;
+            left: -26px; top: 0; bottom: 0;
+            width: 22px;
+            border-radius: 3px 0 0 3px;
+            overflow: hidden;
+        }
+        #pianoBarRight {
+            position: absolute;
+            right: -26px; top: 0; bottom: 0;
+            width: 22px;
+            border-radius: 0 3px 3px 0;
+            overflow: hidden;
+        }
+        .pk-white {
+            position: absolute;
+            left: 0; right: 0;
+            background: rgba(255,255,255,0.04);
+            border-top: 0.5px solid rgba(255,255,255,0.07);
+        }
+        .pk-black {
+            position: absolute;
+            left: 0; right: 36%;
+            background: rgba(0,0,0,0.42);
+            border-top: 0.5px solid rgba(0,0,0,0.08);
+            z-index: 2;
+        }
+
+        /* ══════════════════════════════════════════════════════════
+           RIGHT COLUMN — Controls & Results
+           ══════════════════════════════════════════════════════════ */
+        .controls-col {
+            display: flex;
+            flex-direction: column;
+            padding: 28px 28px;
+            gap: 18px;
+            overflow-y: auto;
+        }
+
+        /* ── App header ─────────────────────────────────────────── */
+        .app-title {
+            font-family: var(--font-display);
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1;
+            background: linear-gradient(135deg, #ffffff 0%, #9aafc8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .app-subtitle {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-mid);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-top: 5px;
+            padding-bottom: 18px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ── Recording indicator ────────────────────────────────── */
+        #recordingIndicator {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 8px 14px;
+            background: rgba(255, 77, 106, 0.06);
+            border: 1px solid rgba(255, 77, 106, 0.2);
+            border-radius: var(--radius-xs);
+        }
+        @keyframes rec-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.3; transform: scale(0.65); }
+        }
+        .rec-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--red);
+            flex-shrink: 0;
+            will-change: transform, opacity;
+            animation: rec-pulse 1.1s ease-in-out infinite;
+        }
+        .rec-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--red);
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-family: var(--font-display);
+        }
+        #frequencyDisplay {
+            margin-left: auto;
+            font-size: 12px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--cyan), var(--mint));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Instruction text ───────────────────────────────────── */
+        #instructionText {
+            font-size: 13px;
+            color: var(--text-mid);
+            line-height: 1.65;
+        }
+
+        /* ── Buttons ────────────────────────────────────────────── */
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 13px 20px;
+            border: none;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, var(--cyan), var(--mint));
+            color: #030d08;
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s, box-shadow 0.2s;
+        }
+        .btn-primary:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: scale(1.016);
+            box-shadow: 0 0 28px rgba(0, 229, 255, 0.28);
+        }
+        .btn-primary:active:not(:disabled) { transform: scale(0.99); }
+        .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        .btn-ghost {
+            width: 100%;
+            padding: 13px 20px;
+            border: 1px solid var(--border);
+            border-radius: 9999px;
+            background: transparent;
+            color: var(--text-mid);
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .btn-ghost:hover:not(:disabled) {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-hi);
+            border-color: rgba(255,255,255,0.13);
+        }
+        .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        /* ── Error box ──────────────────────────────────────────── */
+        #errorBox {
+            background: rgba(255,77,106,0.06);
+            border: 1px solid rgba(255,77,106,0.22);
+            border-radius: var(--radius-xs);
+            padding: 11px 14px;
+            font-size: 12px;
+            color: #ff8fa3;
+        }
+
+        /* ── Measurement mini-cards ─────────────────────────────── */
+        .section-label {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-lo);
+            margin-bottom: 9px;
+        }
+        .measure-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 9px;
+        }
+        .measure-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xs);
+            padding: 11px 13px;
+        }
+        .measure-label {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+        }
+        .label-low  { color: var(--red); }
+        .label-high { color: var(--mint); }
+        .measure-val {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .dot-low, .dot-high {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .dot-low  { background: var(--red);  box-shadow: 0 0 5px var(--red); }
+        .dot-high { background: var(--mint); box-shadow: 0 0 5px var(--mint); }
+        .note-val {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-hi);
+            font-family: var(--font-display);
+            line-height: 1;
+        }
+
+        /* ── Result box ─────────────────────────────────────────── */
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(7px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        #resultBox:not(.hidden) { animation: fade-up 0.3s ease-out; }
+        #resultBox {
+            background: rgba(0, 229, 255, 0.03);
+            border: 1px solid rgba(0, 229, 255, 0.12);
+            border-radius: var(--radius-sm);
+            padding: 18px;
+        }
+        .result-label {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-lo);
+            margin-bottom: 6px;
+        }
+        #voiceTypeDisplay {
+            font-family: var(--font-display);
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--cyan), var(--mint));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        #rangeInfo {
+            font-size: 12px;
+            color: var(--text-mid);
+            line-height: 1.55;
+            margin-top: 9px;
+        }
+        #badgeDisplay {
+            display: inline-block;
+            margin-top: 9px;
+            padding: 3px 11px;
+            border-radius: 999px;
+            background: rgba(0,229,255,0.09);
+            border: 1px solid rgba(0,229,255,0.2);
+            color: var(--cyan);
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        /* Range score */
+        .score-section {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .score-row {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .score-label {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-lo);
+            margin-bottom: 4px;
+        }
+        .score-num { line-height: 1; }
+        #semitoneCount {
+            font-size: 40px;
+            font-weight: 700;
+            font-family: var(--font-display);
+            line-height: 1;
+        }
+        .score-unit {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-mid);
+            margin-left: 4px;
+        }
+        .score-right { text-align: right; }
+        #personalBestDisplay {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-hi);
+            font-family: var(--font-display);
+        }
+        .score-pills {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tier-pill {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+        .record-badge {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, var(--amber), #f59e0b);
+            color: #1a0e00;
+        }
+        @keyframes record-pulse {
+            0%, 100% { transform: scale(1); }
+            50%       { transform: scale(1.1); }
+        }
+
+        /* ── Utility ─────────────────────────────────────────────── */
+        .hidden { display: none !important; }
+
+        /* ── Responsive — mobile ────────────────────────────────── */
+        @media (max-width: 620px) {
+            body { padding: 12px; align-items: flex-start; }
+            .app-grid {
+                grid-template-columns: 1fr;
+                min-height: 0;
+            }
+            #pitchColumn {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                flex-direction: row;
+                padding: 16px 20px;
+                height: 140px;
+                gap: 14px;
+            }
+            .brand-mark { margin-bottom: 0; align-self: center; }
+            .pitch-bar-wrap {
+                flex: 1;
+                padding: 4px 40px;
+            }
+            .controls-col { padding: 20px 20px; gap: 14px; }
+            .app-title { font-size: 24px; }
+            #voiceTypeDisplay { font-size: 28px; }
+            #semitoneCount { font-size: 32px; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="mainCard">
+        <div class="app-grid">
+
+            <!-- ════════════════════════════════════════
+                 LEFT COLUMN — Pitch Meter
+                 ════════════════════════════════════════ -->
+            <div id="pitchColumn">
+
+                <div class="brand-mark">
+                    <img src="favicon.svg" alt="VoiceCrack">
+                </div>
+
+                <div class="pitch-bar-wrap">
+                    <div id="pitchBar">
+
+                        <!-- Zone-unlock overlays -->
+                        <div id="overlayBottom" class="pitch-overlay"></div>
+                        <div id="overlayTop"    class="pitch-overlay"></div>
+
+                        <!-- Note labels -->
+                        <span class="note-label note-g5">G5</span>
+                        <span class="note-label note-c5">C5</span>
+                        <span class="note-label note-c4">C4</span>
+                        <span class="note-label note-c3">C3</span>
+                        <span class="note-label note-c2">C2</span>
+                        <span class="note-label note-a1">A1</span>
+
+                        <!-- Live pitch dot -->
+                        <div id="pitchDot"></div>
+
+                        <!-- Min / max markers -->
+                        <div id="minMarker" class="pitch-marker marker-min hidden"></div>
+                        <div id="maxMarker" class="pitch-marker marker-max hidden"></div>
+
+                        <!-- Piano key decorators -->
+                        <div id="pianoBar"></div>
+                        <div id="pianoBarRight"></div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ════════════════════════════════════════
+                 RIGHT COLUMN — Controls & Results
+                 ════════════════════════════════════════ -->
+            <div class="controls-col">
+
+                <!-- Header -->
+                <header>
+                    <h1 class="app-title">VoiceCrack</h1>
+                    <p class="app-subtitle">Vocal Range Analyzer</p>
+                </header>
+
+                <!-- Recording indicator (hidden initially) -->
+                <div id="recordingIndicator" class="hidden">
+                    <span class="rec-dot"></span>
+                    <span class="rec-label">REC</span>
+                    <span id="frequencyDisplay">— Hz</span>
+                </div>
+
+                <!-- Instruction -->
+                <p id="instructionText">
+                    Start recording and sing your notes — hold each for at least 1 second.
+                </p>
+
+                <!-- CTA Buttons -->
+                <div class="btn-group">
+                    <button id="startBtn" class="btn-primary">Start Recording</button>
+                    <button id="stopBtn" class="btn-ghost hidden" disabled>Analyze Voice</button>
+                </div>
+
+                <!-- Error -->
+                <div id="errorBox" class="hidden">
+                    <strong>Error:</strong>
+                    <span id="errorMessage" style="display:block; margin-top:3px;"></span>
+                </div>
+
+                <!-- Measured range -->
+                <div>
+                    <p class="section-label">Recorded Range</p>
+                    <div class="measure-grid">
+                        <div class="measure-card">
+                            <p class="measure-label label-low">Lowest</p>
+                            <div class="measure-val">
+                                <span class="dot-low"></span>
+                                <span id="minNoteDisplay" class="note-val">–</span>
+                            </div>
+                        </div>
+                        <div class="measure-card">
+                            <p class="measure-label label-high">Highest</p>
+                            <div class="measure-val">
+                                <span class="dot-high"></span>
+                                <span id="maxNoteDisplay" class="note-val">–</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Result box -->
+                <div id="resultBox" class="hidden">
+                    <p class="result-label">Voice Type</p>
+                    <h2 id="voiceTypeDisplay"></h2>
+                    <p id="rangeInfo"></p>
+                    <span id="badgeDisplay"></span>
+
+                    <!-- Range score -->
+                    <div class="score-section">
+                        <div class="score-row">
+                            <div>
+                                <p class="score-label">Range Score</p>
+                                <p class="score-num">
+                                    <span id="semitoneCount">0</span>
+                                    <span class="score-unit">semitones</span>
+                                </p>
+                            </div>
+                            <div class="score-right">
+                                <p class="score-label">Personal Best</p>
+                                <p id="personalBestDisplay">—</p>
+                            </div>
+                        </div>
+                        <div class="score-pills">
+                            <span id="tierPill" class="tier-pill"></span>
+                            <span id="recordBadge" class="record-badge hidden">🏆 New Record!</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /controls-col -->
+        </div><!-- /app-grid -->
+    </div><!-- /mainCard -->
+
+    <!-- ── JavaScript (ES Module) ─────────────────────────────────────── -->
+    <script type="module">
+        import { yin, noteFromPitch, noteNameFromPitch, createMedianFilter, getVoiceSuggestion, getRangeScore }
+            from './pitchEngine.js';
+
+        // ── Translation layer ─────────────────────────────────────────────
+        // pitchEngine.js outputs German strings; we translate here so the
+        // engine stays untouched and fully portable.
+        const T_TYPE = {
+            'Bass / Tenor': 'Bass / Tenor',
+            'Bass':         'Bass',
+            'Tenor':        'Tenor',
+            'Countertenor': 'Countertenor',
+            'Bariton':      'Baritone',
+        };
+        const T_BADGE = {
+            'Power-Umfang':      'Power Range',
+            'Tiefen-Spezialist': 'Deep Specialist',
+            'Allrounder':        'All-Rounder',
+            'Höhen-Artist':      'High Notes Artist',
+            'Fundament':         'Foundation',
+        };
+        const T_TIER = {
+            'Aufwärmen': 'Warm Up',
+            'Solide':    'Solid',
+            'Gut':       'Good',
+            'Stark':     'Strong',
+            'Profi':     'Pro',
+            'Legende':   'Legend',
+        };
+        // English descriptions per voice type
+        const DESCRIPTIONS = {
+            'Bass / Tenor': 'Extraordinary range — you command both deep lows and brilliant highs.',
+            'Bass':         'Your deep foundation makes you a natural bass voice.',
+            'Tenor':        'Your range covers the classic tenor territory well.',
+            'Countertenor': 'Impressive highs! You excel in the countertenor register.',
+            'Bariton':      'Your voice sits in a solid, versatile middle range.',
+        };
+
+        // ── 1. State ──────────────────────────────────────────────────────
+        let audioContext, analyser, microphone, lowShelf, highShelf;
+        let micStream       = null;
+        let yinBuffer       = null;
+        let isRecording     = false;
+        let animationFrameId;
+        let minPitch        = Infinity;
+        let maxPitch        = -Infinity;
+        let lastDisplayedHz = -1;
+
+        // Stability / smoothing constants
+        const STABILITY_TOLERANCE = 1;    // ±semitones for hysteresis
+        const DOT_MIN_FRAMES      = 4;    // stable frames before dot moves (~66 ms)
+        const DOT_LERP            = 0.08; // EMA: dot glide speed
+        const FREQ_LERP           = 0.04; // EMA: Hz display glide speed
+        const RMS_THRESHOLD       = 0.015;// below = silence (room noise ~0.002–0.008)
+
+        /**
+         * Adaptive hold time: 30 frames (0.5 s) at A1, 75 frames (1.25 s) at G5.
+         * Low notes are harder to detect → shorter hold. High notes → stricter.
+         */
+        function stabilityFrames(midi) {
+            const t = (midi - PITCH_MIN) / PITCH_RANGE; // 0–1
+            return Math.round(30 + 45 * t);              // 30–75
+        }
+
+        const medianFilter = createMedianFilter(9);
+
+        function ema(current, target, alpha) {
+            return current === null ? target : current + alpha * (target - current);
+        }
+
+        // Personal best — localStorage with in-memory fallback
+        const BEST_KEY    = 'vc_best_st';
+        let inMemoryBest  = (() => {
+            try { return parseInt(localStorage.getItem(BEST_KEY) || '0'); }
+            catch (_) { return 0; }
+        })();
+        let stableNote    = null;
+        let stableCount   = 0;
+        let displayMidi   = null; // float MIDI the dot glides to
+        let displayFreq   = null; // float Hz the display glides to
+
+        // Pitch meter range (MIDI)
+        const PITCH_MIN   = 33; // A1 (~55 Hz)
+        const PITCH_MAX   = 79; // G5 (~784 Hz) — 3 ST above countertenor threshold
+        const PITCH_RANGE = PITCH_MAX - PITCH_MIN; // 46 semitones
+
+        // ── 2. DOM refs ───────────────────────────────────────────────────
+        const startBtn           = document.getElementById('startBtn');
+        const stopBtn            = document.getElementById('stopBtn');
+        const frequencyDisplay   = document.getElementById('frequencyDisplay');
+        const minNoteDisplay     = document.getElementById('minNoteDisplay');
+        const maxNoteDisplay     = document.getElementById('maxNoteDisplay');
+        const errorBox           = document.getElementById('errorBox');
+        const errorMessage       = document.getElementById('errorMessage');
+        const resultBox          = document.getElementById('resultBox');
+        const voiceTypeDisplay   = document.getElementById('voiceTypeDisplay');
+        const rangeInfo          = document.getElementById('rangeInfo');
+        const badgeDisplay       = document.getElementById('badgeDisplay');
+        const semitoneCount      = document.getElementById('semitoneCount');
+        const personalBestDisplay= document.getElementById('personalBestDisplay');
+        const tierPill           = document.getElementById('tierPill');
+        const recordBadge        = document.getElementById('recordBadge');
+        const instructionText    = document.getElementById('instructionText');
+        const recordingIndicator = document.getElementById('recordingIndicator');
+        const pitchBar           = document.getElementById('pitchBar');
+        const pitchDot           = document.getElementById('pitchDot');
+        const minMarker          = document.getElementById('minMarker');
+        const maxMarker          = document.getElementById('maxMarker');
+        const overlayBottom      = document.getElementById('overlayBottom');
+        const overlayTop         = document.getElementById('overlayTop');
+
+        // ── 3. Pitch meter helpers ────────────────────────────────────────
+        function noteToPercent(midi) {
+            const clamped = Math.max(PITCH_MIN, Math.min(PITCH_MAX, midi));
+            return ((clamped - PITCH_MIN) / PITCH_RANGE) * 100;
+        }
+
+        let pitchBarHeight = 0;
+
+        function moveDot(midiFloat) {
+            const px = (noteToPercent(midiFloat) / 100) * pitchBarHeight;
+            pitchDot.style.transform = `translateX(-50%) translateY(calc(50% - ${px}px))`;
+            pitchDot.classList.add('active');
+        }
+        function hideDot() { pitchDot.classList.remove('active'); }
+
+        function setMarker(marker, overlay, midiNote, isTop) {
+            const pct = noteToPercent(midiNote);
+            marker.style.bottom = pct + '%';
+            marker.classList.remove('hidden');
+            overlay.style.height = (isTop ? 100 - pct : pct) + '%';
+        }
+        function resetMeter() {
+            hideDot();
+            pitchDot.style.transform = 'translateX(-50%) translateY(50%)';
+            minMarker.classList.add('hidden');
+            maxMarker.classList.add('hidden');
+            overlayBottom.style.height = '100%';
+            overlayTop.style.height    = '100%';
+            displayMidi = null;
+        }
+
+        // ── 4. Recording loop ─────────────────────────────────────────────
+        function updatePitch() {
+            if (!isRecording) return;
+
+            analyser.getFloatTimeDomainData(yinBuffer);
+
+            // RMS amplitude gate
+            let rmsSum = 0;
+            for (let i = 0; i < yinBuffer.length; i++) rmsSum += yinBuffer[i] * yinBuffer[i];
+            const rms = Math.sqrt(rmsSum / yinBuffer.length);
+
+            // Dot: grey+dim when silent, glowing cyan when active
+            pitchDot.classList.toggle('silent', rms < RMS_THRESHOLD);
+
+            if (rms < RMS_THRESHOLD) {
+                stableCount = 0;
+                animationFrameId = requestAnimationFrame(updatePitch);
+                return;
+            }
+
+            const frequency = yin(yinBuffer, audioContext.sampleRate);
+
+            if (frequency !== -1 && frequency > 50 && frequency < 2000) {
+                const rawPitch = noteFromPitch(frequency);
+                const medPitch = medianFilter.push(rawPitch);
+
+                // Hz display — EMA smoothed, DOM write only on change
+                displayFreq = ema(displayFreq, frequency, FREQ_LERP);
+                const rounded = Math.round(displayFreq);
+                if (lastDisplayedHz !== rounded) {
+                    frequencyDisplay.textContent = rounded + ' Hz';
+                    lastDisplayedHz = rounded;
+                }
+
+                // Hysteresis
+                if (stableNote === null || Math.abs(medPitch - stableNote) > STABILITY_TOLERANCE) {
+                    stableNote  = medPitch;
+                    stableCount = 1;
+                } else {
+                    stableCount++;
+                }
+
+                // Dot only moves after DOT_MIN_FRAMES stable frames
+                if (stableCount >= DOT_MIN_FRAMES) {
+                    displayMidi = ema(displayMidi, stableNote, DOT_LERP);
+                    moveDot(displayMidi);
+                }
+
+                // Register new min / max after adaptive hold time
+                const reqFrames = stabilityFrames(stableNote);
+                if (stableCount >= reqFrames && stableNote < minPitch) {
+                    minPitch = stableNote;
+                    minNoteDisplay.textContent = noteNameFromPitch(stableNote);
+                    setMarker(minMarker, overlayBottom, stableNote, false);
+                    if (maxPitch === -Infinity)
+                        instructionText.textContent = 'Lowest note captured! Now sing your highest note and hold it.';
+                }
+                if (stableCount >= reqFrames && stableNote > maxPitch) {
+                    maxPitch = stableNote;
+                    maxNoteDisplay.textContent = noteNameFromPitch(stableNote);
+                    setMarker(maxMarker, overlayTop, stableNote, true);
+                    if (minPitch !== Infinity)
+                        instructionText.textContent = 'Both notes captured! Press "Analyze Voice" whenever you\'re done.';
+                }
+            } else {
+                stableCount = 0;
+            }
+
+            animationFrameId = requestAnimationFrame(updatePitch);
+        }
+
+        // ── 5. Voice evaluation ───────────────────────────────────────────
+        function evaluateVoiceType() {
+            if (minPitch === Infinity || maxPitch === -Infinity) {
+                showError('No clear pitch detected. Please try again and hold your notes steadily.');
+                return;
+            }
+
+            // Get result from engine, translate to English
+            const raw   = getVoiceSuggestion(minPitch, maxPitch);
+            const type  = T_TYPE[raw.type]   ?? raw.type;
+            const badge = T_BADGE[raw.badge]  ?? raw.badge;
+            const desc  = DESCRIPTIONS[raw.type] ?? raw.description;
+
+            voiceTypeDisplay.textContent = type;
+            rangeInfo.innerHTML =
+                `<strong>${desc}</strong><br>` +
+                `Measured range: ${noteNameFromPitch(minPitch)} – ${noteNameFromPitch(maxPitch)}`;
+            badgeDisplay.textContent = badge;
+
+            // Range score
+            const { semitones, tier, color } = getRangeScore(minPitch, maxPitch);
+            const tierEn = T_TIER[tier] ?? tier;
+
+            semitoneCount.textContent  = semitones;
+            semitoneCount.style.color  = color;
+
+            tierPill.textContent       = tierEn;
+            tierPill.style.color       = color;
+            tierPill.style.background  = color + '22';
+            tierPill.style.border      = `1px solid ${color}55`;
+
+            // Personal best
+            let prevBest = inMemoryBest;
+            try { prevBest = parseInt(localStorage.getItem(BEST_KEY) || '0'); } catch (_) {}
+            const isNewRecord = semitones > prevBest;
+            if (isNewRecord) {
+                inMemoryBest = semitones;
+                try { localStorage.setItem(BEST_KEY, String(semitones)); } catch (_) {}
+            }
+            const best = Math.max(semitones, prevBest);
+            personalBestDisplay.textContent = best + ' ST';
+            personalBestDisplay.style.color = color;
+
+            // New record flash
+            if (isNewRecord) {
+                recordBadge.classList.remove('hidden');
+                recordBadge.style.animation = 'none';
+                requestAnimationFrame(() => {
+                    recordBadge.style.animation = 'record-pulse 0.45s ease-in-out 5';
+                });
+            } else {
+                recordBadge.classList.add('hidden');
+                recordBadge.style.animation = 'none';
+            }
+
+            resultBox.classList.remove('hidden');
+        }
+
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorBox.classList.remove('hidden');
+        }
+
+        // ── 6. Piano keyboards (static, rendered once) ────────────────────
+        (function initPianoKeys() {
+            const left  = document.getElementById('pianoBar');
+            const right = document.getElementById('pianoBarRight');
+            const BLACK = new Set([1, 3, 6, 8, 10]); // C#, D#, F#, G#, A#
+            const keyH  = 100 / PITCH_RANGE;
+            const fragL = document.createDocumentFragment();
+            const fragR = document.createDocumentFragment();
+
+            for (let midi = PITCH_MIN; midi <= PITCH_MAX; midi++) {
+                const isBlack = BLACK.has(midi % 12);
+                const bot     = noteToPercent(midi) + '%';
+                const h       = 'calc(' + keyH + '% - 0.5px)';
+                [fragL, fragR].forEach(frag => {
+                    const key = document.createElement('div');
+                    key.className    = isBlack ? 'pk-black' : 'pk-white';
+                    key.style.bottom = bot;
+                    key.style.height = h;
+                    frag.appendChild(key);
+                });
+            }
+            left.appendChild(fragL);
+            right.appendChild(fragR);
+        })();
+
+        // ── 7. Button handlers ────────────────────────────────────────────
+        startBtn.addEventListener('click', async () => {
+            // Reset state
+            errorBox.classList.add('hidden');
+            resultBox.classList.add('hidden');
+            minPitch = Infinity;
+            maxPitch = -Infinity;
+            minNoteDisplay.textContent = '–';
+            maxNoteDisplay.textContent = '–';
+            frequencyDisplay.textContent = '— Hz';
+            instructionText.textContent  = 'Sing your lowest note and hold it for at least 1 second.';
+            resetMeter();
+
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Highpass: removes sub-bass rumble below 40 Hz
+                lowShelf = audioContext.createBiquadFilter();
+                lowShelf.type = 'highpass';
+                lowShelf.frequency.value = 40;
+
+                // Lowpass: removes high-frequency noise above 1200 Hz
+                highShelf = audioContext.createBiquadFilter();
+                highShelf.type = 'lowpass';
+                highShelf.frequency.value = 1200;
+
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 4096; // W=2048 for YIN → better low-note resolution
+                yinBuffer = new Float32Array(analyser.fftSize);
+
+                micStream  = await navigator.mediaDevices.getUserMedia({ audio: true });
+                microphone = audioContext.createMediaStreamSource(micStream);
+                microphone.connect(lowShelf);
+                lowShelf.connect(highShelf);
+                highShelf.connect(analyser);
+
+                pitchBarHeight = pitchBar.offsetHeight;
+                isRecording    = true;
+                medianFilter.reset();
+                stableNote      = null;
+                stableCount     = 0;
+                displayFreq     = null;
+                lastDisplayedHz = -1;
+
+                startBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+                stopBtn.disabled = false;
+                recordingIndicator.classList.remove('hidden');
+
+                updatePitch();
+
+            } catch (err) {
+                showError('Microphone access denied or not found. Please allow microphone access in your browser settings.');
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            isRecording = false;
+
+            if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+            if (microphone) microphone.disconnect();
+            if (audioContext && audioContext.state !== 'closed') audioContext.close();
+            cancelAnimationFrame(animationFrameId);
+
+            hideDot();
+            pitchDot.classList.remove('silent');
+            startBtn.classList.remove('hidden');
+            startBtn.textContent = 'Record Again';
+            stopBtn.classList.add('hidden');
+            recordingIndicator.classList.add('hidden');
+            instructionText.textContent = 'Start recording and sing your notes — hold each for at least 1 second.';
+
+            evaluateVoiceType();
+        });
+
+        // ── 8. Service Worker ─────────────────────────────────────────────
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(() => console.log('[VoiceCrack] Service Worker registered.'))
+                    .catch(err => console.warn('[VoiceCrack] Service Worker failed:', err));
+            });
+        }
+    </script>
+
+</body>
+</html>

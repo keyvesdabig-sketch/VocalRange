@@ -1,0 +1,18 @@
+# Node (falls mal ein Build-Tool dazu kommt)
+node_modules/
+npm-debug.log*
+
+# VS Code
+.vscode/settings.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Claude
+.claude/
+settings.local.json
+

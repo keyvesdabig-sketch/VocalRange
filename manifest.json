@@ -1,0 +1,17 @@
+{
+  "name": "VoiceCrack - Chor Stimmanalyse",
+  "short_name": "VoiceCrack",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "description": "Finde deine Stimmanalyse für den Chor in Sekunden.",
+  "icons": [
+    {
+      "src": "Logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
