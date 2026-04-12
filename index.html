@@ -58,9 +58,9 @@
             --font-body:    'Manrope', sans-serif;
 
             /* ── Shape ──────────────────────────────────────────── */
-            --radius:    20px;
-            --radius-sm: 14px;
-            --radius-xs: 10px;
+            --radius:    2rem;    /* 32px — matches Stitch rounded-[2rem] */
+            --radius-sm: 1.5rem;  /* 24px */
+            --radius-xs: 0.75rem; /* 12px */
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -87,23 +87,26 @@
             pointer-events: none;
             z-index: 0;
         }
+        /* Matching Stitch's exact gradient stops:
+         * surface-bright (#3a2051) top-left, on-primary-fixed (#18004c) bottom-right */
         .bg-blob--violet {
-            width: 900px; height: 900px;
-            top: -320px; left: -280px;
-            background: radial-gradient(circle, rgba(182,160,255,0.13) 0%, transparent 60%);
-            filter: blur(50px);
+            width: 100%; height: 100%;
+            top: 0; left: 0;
+            background: radial-gradient(circle at 20% 30%, #3a2051 0%, transparent 40%);
+            filter: blur(80px);
         }
         .bg-blob--cyan {
-            width: 650px; height: 650px;
-            bottom: -220px; right: -180px;
-            background: radial-gradient(circle, rgba(0,241,254,0.09) 0%, transparent 60%);
-            filter: blur(50px);
+            width: 100%; height: 100%;
+            top: 0; left: 0;
+            background: radial-gradient(circle at 80% 70%, #18004c 0%, transparent 40%);
+            filter: blur(80px);
         }
         .bg-blob--deep {
-            width: 500px; height: 500px;
-            top: 25%; left: 55%;
-            background: radial-gradient(circle, rgba(100,30,200,0.10) 0%, transparent 60%);
-            filter: blur(70px);
+            /* Subtle mid-field accent — not in Stitch but adds extra depth */
+            width: 400px; height: 400px;
+            top: 30%; left: 40%;
+            background: radial-gradient(circle, rgba(182,160,255,0.04) 0%, transparent 60%);
+            filter: blur(60px);
         }
 
         /* ── Main card — no border (tonal glass only) ───────────── */
@@ -184,11 +187,11 @@
             position: relative;
         }
 
-        /* Zone-unlock overlays */
+        /* Zone-unlock overlays — use exact bg color (not black) for clean tonal separation */
         .pitch-overlay {
             position: absolute;
             left: 0; right: 0;
-            background: rgba(0, 0, 0, 0.75);
+            background: #1d0a2d; /* surface-container-low */
             transition: height 0.35s ease-out;
             z-index: 2;
         }
@@ -297,6 +300,8 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            /* Glow effect — filter works on gradient text unlike text-shadow */
+            filter: drop-shadow(0 0 10px rgba(182,160,255,0.45)) drop-shadow(0 0 28px rgba(182,160,255,0.18));
         }
         .app-subtitle {
             font-size: 10px;
@@ -435,11 +440,12 @@
             grid-template-columns: 1fr 1fr;
             gap: 9px;
         }
-        /* No borders — tonal surface shift creates depth */
+        /* No borders — tonal surface shift + inner glow creates depth */
         .measure-card {
             background: var(--surf-recess);
             border-radius: var(--radius-xs);
             padding: 11px 13px;
+            box-shadow: inset 0 0 20px rgba(182,160,255,0.04);
         }
         .measure-label {
             font-size: 8px;
@@ -478,12 +484,29 @@
         #resultBox:not(.hidden) { animation: fade-up 0.3s ease-out; }
         /* Level 2 glass — higher blur, higher opacity */
         #resultBox {
+            position: relative;
+            overflow: hidden;
             background: var(--surf-comp);
             backdrop-filter: blur(40px);
             -webkit-backdrop-filter: blur(40px);
             border-radius: var(--radius-sm);
             padding: 18px;
-            box-shadow: 0 0 0 1px rgba(182,160,255,0.08) inset;
+            box-shadow:
+                inset 0 0 0 1px rgba(182,160,255,0.08),
+                inset 0 0 20px rgba(182,160,255,0.05);
+        }
+        /* Asymmetric accent blob (per Stitch gamification card) */
+        #resultBox::after {
+            content: '';
+            position: absolute;
+            right: -8px;
+            bottom: -8px;
+            width: 80px; height: 80px;
+            background: rgba(182,160,255,0.12);
+            border-radius: 50%;
+            filter: blur(28px);
+            pointer-events: none;
+            z-index: 0;
         }
         .result-label {
             font-size: 9px;
