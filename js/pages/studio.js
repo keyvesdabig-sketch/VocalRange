@@ -15,7 +15,8 @@ import {
     getRangeScore,
 } from '../../pitchEngine.js';
 
-import { LevelEngine } from '../engines/levelEngine.js';
+import { LevelEngine     } from '../engines/levelEngine.js';
+import { PitchTrailEngine } from '../engines/pitchTrailEngine.js';
 
 // ── Translation layer ─────────────────────────────────────────
 // pitchEngine.js returns German strings; translate here so the engine
@@ -87,6 +88,11 @@ const HTML = /* html */`
                 <h1 class="app-title">VoiceCrack</h1>
                 <p class="app-subtitle">Vocal Range Analyzer</p>
             </header>
+
+            <!-- Pitch trail canvas — builds up during recording, persists after -->
+            <div class="trail-wrap">
+                <canvas id="pitchTrailCanvas" aria-label="Pitch history trail"></canvas>
+            </div>
 
             <div id="recordingIndicator" class="hidden">
                 <span class="rec-dot"></span>
@@ -222,7 +228,10 @@ export function render(container) {
     const levelSection        = $('levelSection');
 
     // ── Engine instantiation ──────────────────────────────────────
-    const levelEngine = new LevelEngine($('levelCanvas'));
+    const levelEngine  = new LevelEngine($('levelCanvas'));
+    const trailEngine  = new PitchTrailEngine($('pitchTrailCanvas'), {
+        pitchMin: PITCH_MIN, pitchMax: PITCH_MAX,
+    });
 
     // ── State ─────────────────────────────────────────────────
     let audioContext, analyser, microphone, lowShelf, highShelf;
@@ -314,15 +323,21 @@ export function render(container) {
 
         if (rms < RMS_THRESHOLD) {
             stableCount = 0;
+            trailEngine.frame(NaN); // silence gap in trail
             animationFrameId = requestAnimationFrame(updatePitch);
             return;
         }
 
         const frequency = yin(yinBuffer, audioContext.sampleRate);
 
+        // trailMidi: median-filtered pitch, or NaN if no clean pitch detected
+        let trailMidi = NaN;
+
         if (frequency !== -1 && frequency > 50 && frequency < 2000) {
             const rawPitch = noteFromPitch(frequency);
             const medPitch = medianFilter.push(rawPitch);
+
+            trailMidi = medPitch; // feed median pitch to trail (no extra EMA)
 
             // Hz display — EMA smoothed
             displayFreq = ema(displayFreq, frequency, FREQ_LERP);
@@ -366,6 +381,7 @@ export function render(container) {
             stableCount = 0;
         }
 
+        trailEngine.frame(trailMidi); // feed trail (NaN if no clean pitch this frame)
         animationFrameId = requestAnimationFrame(updatePitch);
     }
 
@@ -472,9 +488,10 @@ export function render(container) {
             displayFreq     = null;
             lastDisplayedHz = -1;
 
-            // Show level bar and initialise engine
+            // Show level bar and initialise engines
             levelSection.classList.remove('hidden');
             levelEngine.reset();
+            trailEngine.reset();
 
             startBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');

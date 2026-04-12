@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voicecrack-v3';
+const CACHE_NAME = 'voicecrack-v4';
 const ASSETS = [
     './',
     './index.html',
@@ -11,6 +11,8 @@ const ASSETS = [
     './js/pages/vitals.js',
     './js/pages/arena.js',
     './js/pages/profile.js',
+    './js/engines/levelEngine.js',
+    './js/engines/pitchTrailEngine.js',
 ];
 
 // Install: pre-cache all assets
