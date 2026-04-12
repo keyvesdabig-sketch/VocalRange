@@ -1,0 +1,241 @@
+# VoiceCrack – Audio Visualisation Engines
+
+> Located in `js/engines/`  
+> Both engines are pure Canvas renderers with no DOM dependencies beyond their canvas element.  
+> They are fully decoupled from each other and from the audio pipeline — they only consume processed data.
+
+---
+
+## Architecture Principle
+
+```
+Audio Pipeline (studio.js)
+    │
+    ├─ levelEngine.frame(rms)          ← raw RMS amplitude, every frame
+    └─ pitchTrailEngine.frame(midi)    ← median-filtered MIDI note, every frame
+```
+
+Engines are instantiated once per `render()` call and reset on recording start.  
+They are destroyed implicitly when the page navigates away (canvas detached from DOM).
+
+---
+
+## LevelEngine
+
+**File:** `js/engines/levelEngine.js`  
+**Purpose:** Horizontal RMS amplitude bar with peak-hold marker and Vocal Luminescence gradient fill.
+
+### Constructor
+
+```js
+const engine = new LevelEngine(canvasElement, options?);
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `peakDecayRate` | `0.006` | Peak hold decay per frame (0 = no decay, 1 = instant) |
+| `emaAlpha` | `0.20` | EMA smoothing factor for bar fill (faster than trail) |
+
+### Methods
+
+| Method | Description |
+|---|---|
+| `frame(rms)` | Feed one RMS value. Call every animation frame. |
+| `reset()` | Clears bar and peak. Call on recording start. |
+
+### Visual Anatomy
+
+```
+[━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━|         ]
+ ← gradient fill (rms level) ──────────→  ^peak     ^empty
+```
+
+- **Fill gradient:** `#6b3fa0` (deep violet) → `#b6a0ff` (primary) → `#00f1fe` (cyan at 100%)
+- **Peak marker:** 2px white bar that holds for ~0.5 s then decays at `peakDecayRate`
+- **Canvas:** 8px tall pill (`border-radius: 999px` via container), full width
+- **DPR-aware:** resizes with `devicePixelRatio` for crisp rendering on Retina displays
+
+### Tuning Parameters
+
+| Parameter | Value | Effect if increased | Effect if decreased |
+|---|---|---|---|
+| `emaAlpha` | `0.20` | Bar reacts faster, jumpier | Bar moves sluggishly |
+| `peakDecayRate` | `0.006` | Peak drops faster | Peak holds longer |
+
+---
+
+## PitchTrailEngine
+
+**File:** `js/engines/pitchTrailEngine.js`  
+**Purpose:** Scrolling pitch-history trail with C-note grid, register-coloured line, and challenge mode (target note + tolerance zone).
+
+### Constructor
+
+```js
+const trail = new PitchTrailEngine(canvasElement, options?);
+```
+
+| Option | Default | Description |
+|---|---|---|
+| `pitchMin` | `36` | MIDI C2 — bottom of display range |
+| `pitchMax` | `84` | MIDI C6 — top of display range |
+| `pxPerFrame` | `2` | Horizontal scroll speed (pixels per `frame()` call) |
+| `lineWidth` | `2.5` | Trail stroke width in CSS pixels |
+| `dotRadius` | `5` | Radius of the "current note" glowing dot |
+| `toleranceST` | `1.0` | ±semitones tolerance for challenge hit detection |
+
+### Methods
+
+| Method | Signature | Description |
+|---|---|---|
+| `frame(midi)` | `frame(number \| NaN)` | Feed one MIDI note. `NaN` = silence gap (draws nothing, scrolls). Call every animation frame during recording. |
+| `setTarget(midi)` | `setTarget(number \| null)` | Set the challenge target note. `null` clears it. |
+| `getAccuracy()` | `→ { isHit, semitones }` | Returns current pitch accuracy vs. target. |
+| `reset()` | `reset()` | Clears buffer and trail. Call on recording start. |
+
+### Visual Anatomy
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ C5 · · · · · · · · · · · · · · · · · · · · · · · · · · · ·  │  ← faint grid
+│                                                    ╭─────●    │  ← trail + dot
+│ C4 · · · · · · · · · · · ·· (TARGET ─────────────)· · · · ·  │  ← C4 cyan grid
+│                  ╭─────────╯  ← tolerance zone   ╰───────    │
+│ C3 · · · · · · · · · · · · · · · · · · · · · · · · · · · ·  │
+│←─ left-fade ─→  ←──── circular buffer scrolls right ────→ •  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Trail Colour by Register
+
+The trail colour shifts based on the current note's register:
+
+| Register | MIDI range | Trail colour |
+|---|---|---|
+| Bass | < C3 (48) | `#6b3fa0` Deep Violet |
+| Baritone/Tenor | C3–B3 (48–59) | `#b6a0ff` Electric Violet (primary) |
+| Alto/Mezzo | C4–B4 (60–71) | `#00d4e8` Cyan-Violet blend |
+| Soprano | ≥ C5 (72) | `#00f1fe` Cyan Glow |
+
+In challenge mode, when the pitch is **within ±toleranceST of the target**: trail colour → `#ffe792` (Gold).
+
+### Challenge Mode
+
+```js
+// Arena: set target note (e.g. play scale exercise)
+trail.setTarget(60);  // C4
+
+// Each frame during recording:
+trail.frame(detectedMidi);
+
+// Query accuracy:
+const { isHit, semitones } = trail.getAccuracy();
+// isHit:     boolean — true if within ±1 semitone
+// semitones: number  — absolute distance from target (or NaN if no pitch)
+```
+
+The engine draws:
+- **Target line** — dashed horizontal at the target MIDI note
+- **Tolerance band** — semi-transparent gold zone ± `toleranceST` semitones above/below
+- **Gold trail** — when pitch is within tolerance, line turns gold and glows
+
+### Grid Lines
+
+C-note grid lines are drawn at C2–C6, filtered to only those within `pitchMin`–`pitchMax`.  
+C4 (Middle C) is highlighted in cyan; others are faint violet.
+
+| Note | From top (C2–C6 range) | Colour |
+|---|---|---|
+| C5 | 25% | `rgba(182,160,255, 0.10)` faint violet |
+| C4 | 50% | `rgba(0,241,254, 0.18)` cyan — Middle C |
+| C3 | 75% | `rgba(182,160,255, 0.10)` faint violet |
+
+### Circular Buffer
+
+Trail data is stored in a circular buffer of length `Math.ceil(canvasWidth / pxPerFrame)`.  
+Each slot stores a MIDI note (or `NaN` for silence). On each `frame()` call, the oldest value is overwritten and all slots are redrawn left-to-right.
+
+### Tuning Parameters
+
+| Parameter | Value | Effect if increased | Effect if decreased |
+|---|---|---|---|
+| `pxPerFrame` | `2` | Trail scrolls faster, shorter history | Slower scroll, longer history visible |
+| `lineWidth` | `2.5` | Thicker trail | Thinner trail |
+| `dotRadius` | `5` | Larger live-note indicator | Smaller indicator |
+| `toleranceST` | `1.0` | Easier challenge hit detection | Stricter (requires near-perfect pitch) |
+
+---
+
+## Integration in `studio.js`
+
+```js
+import { LevelEngine     } from '../engines/levelEngine.js';
+import { PitchTrailEngine } from '../engines/pitchTrailEngine.js';
+
+// Instantiate once per render()
+const levelEngine = new LevelEngine($('levelCanvas'));
+const trailEngine = new PitchTrailEngine($('pitchTrailCanvas'), {
+    pitchMin: PITCH_MIN,   // 36 = C2
+    pitchMax: PITCH_MAX,   // 84 = C6
+});
+
+// On recording start:
+levelEngine.reset();
+trailEngine.reset();
+
+// Each animation frame (inside updatePitch()):
+levelEngine.frame(rms);
+trailEngine.frame(trailMidi);    // NaN if no clear pitch / below RMS gate
+
+// On stop:
+// Engines stop receiving frames — canvas retains last drawn state
+```
+
+### Canvas HTML
+
+```html
+<!-- Trail — persistent, visible idle and during recording -->
+<div class="trail-wrap">
+    <canvas id="pitchTrailCanvas" aria-label="Pitch history trail"></canvas>
+</div>
+
+<!-- Level — shown only during recording (hidden class toggled by JS) -->
+<div id="levelSection" class="level-section hidden">
+    <p class="section-label">Signal Level</p>
+    <div class="level-track">
+        <canvas id="levelCanvas" aria-label="Signal level meter"></canvas>
+    </div>
+</div>
+```
+
+### CSS Sizing
+
+Both canvases are sized `width: 100%; height: 100%` via CSS, with the parent container defining the height:
+
+```css
+.trail-wrap  { height: 160px; }
+.level-track { height: 8px; }
+```
+
+Engines use `getBoundingClientRect()` at first frame for DPR-aware internal resolution.
+
+---
+
+## Future: Arena Challenge Integration
+
+The `PitchTrailEngine` is challenge-ready. The Arena page will:
+
+1. Define a challenge sequence (array of `{ midi, durationMs }` target notes)
+2. Call `trail.setTarget(midi)` as each note becomes active
+3. Poll `trail.getAccuracy()` to score the user
+4. Advance to the next note when hold time is met
+
+```js
+// Pseudocode — Arena challenge runner
+for (const note of challengeNotes) {
+    trail.setTarget(note.midi);
+    await holdFor(note.durationMs, () => trail.getAccuracy().isHit);
+    score += trail.getAccuracy().isHit ? 1 : 0;
+}
+trail.setTarget(null);
+```
