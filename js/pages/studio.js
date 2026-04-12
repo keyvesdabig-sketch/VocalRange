@@ -18,40 +18,9 @@ import {
 import { LevelEngine     } from '../engines/levelEngine.js';
 import { PitchTrailEngine } from '../engines/pitchTrailEngine.js';
 
-// ── Translation layer ─────────────────────────────────────────
-// pitchEngine.js returns German strings; translate here so the engine
-// stays untouched and fully portable.
-const T_TYPE = {
-    'Bass / Tenor': 'Bass / Tenor',
-    'Bass':         'Bass',
-    'Tenor':        'Tenor',
-    'Countertenor': 'Countertenor',
-    'Bariton':      'Baritone',
-};
-const T_BADGE = {
-    'Power-Umfang':      'Power Range',
-    'Tiefen-Spezialist': 'Deep Specialist',
-    'Allrounder':        'All-Rounder',
-    'Höhen-Artist':      'High Notes Artist',
-    'Fundament':         'Foundation',
-};
-const T_TIER = {
-    'Aufwärmen': 'Warm Up',
-    'Solide':    'Solid',
-    'Gut':       'Good',
-    'Stark':     'Strong',
-    'Profi':     'Pro',
-    'Legende':   'Legend',
-};
-const DESCRIPTIONS = {
-    'Bass / Tenor': 'Extraordinary range — you command both deep lows and brilliant highs.',
-    'Bass':         'Your deep foundation makes you a natural bass voice.',
-    'Tenor':        'Your range covers the classic tenor territory well.',
-    'Countertenor': 'Impressive highs! You excel in the countertenor register.',
-    'Bariton':      'Your voice sits in a solid, versatile middle range.',
-};
 
 // ── HTML template ─────────────────────────────────────────────
+
 const HTML = /* html */`
 <div id="mainCard">
     <div class="app-grid">
@@ -66,12 +35,11 @@ const HTML = /* html */`
                     <div id="overlayBottom" class="pitch-overlay"></div>
                     <div id="overlayTop"    class="pitch-overlay"></div>
 
-                    <span class="note-label note-g5">G5</span>
+                    <span class="note-label note-c6">C6</span>
                     <span class="note-label note-c5">C5</span>
                     <span class="note-label note-c4">C4</span>
                     <span class="note-label note-c3">C3</span>
                     <span class="note-label note-c2">C2</span>
-                    <span class="note-label note-a1">A1</span>
 
                     <div id="pitchDot"></div>
                     <div id="minMarker" class="pitch-marker marker-min hidden"></div>
@@ -175,9 +143,9 @@ const HTML = /* html */`
 `;
 
 // ── Constants ─────────────────────────────────────────────────
-const PITCH_MIN         = 33;    // MIDI A1
-const PITCH_MAX         = 79;    // MIDI G5
-const PITCH_RANGE       = PITCH_MAX - PITCH_MIN; // 46 semitones
+const PITCH_MIN         = 36;    // MIDI C2 (~65 Hz)
+const PITCH_MAX         = 84;    // MIDI C6 (~1047 Hz)
+const PITCH_RANGE       = PITCH_MAX - PITCH_MIN; // 48 semitones — full SATB range
 const STABILITY_TOL     = 1;     // ±semitones for hysteresis
 const DOT_MIN_FRAMES    = 4;     // frames before dot starts moving
 const DOT_LERP          = 0.08;  // EMA — dot glide speed
@@ -392,23 +360,19 @@ export function render(container) {
             return;
         }
 
+        // pitchEngine returns English SATB strings directly — no translation needed
         const raw   = getVoiceSuggestion(minPitch, maxPitch);
-        const type  = T_TYPE[raw.type]  ?? raw.type;
-        const badge = T_BADGE[raw.badge] ?? raw.badge;
-        const desc  = DESCRIPTIONS[raw.type] ?? raw.description;
-
-        voiceTypeDisplay.textContent = type;
-        rangeInfo.innerHTML =
-            `<strong>${desc}</strong><br>` +
-            `Measured range: ${noteNameFromPitch(minPitch)} – ${noteNameFromPitch(maxPitch)}`;
-        badgeDisplay.textContent = badge;
-
         const { semitones, tier, color } = getRangeScore(minPitch, maxPitch);
-        const tierEn = T_TIER[tier] ?? tier;
+
+        voiceTypeDisplay.textContent = raw.type;
+        rangeInfo.innerHTML =
+            `<strong>${raw.description}</strong><br>` +
+            `Measured range: ${noteNameFromPitch(minPitch)} – ${noteNameFromPitch(maxPitch)}`;
+        badgeDisplay.textContent = raw.badge;
 
         semitoneCount.textContent = semitones;
         semitoneCount.style.color = color;
-        tierPill.textContent      = tierEn;
+        tierPill.textContent      = tier;
         tierPill.style.color      = color;
         tierPill.style.background = color + '22';
         tierPill.style.border     = `1px solid ${color}55`;
@@ -468,7 +432,7 @@ export function render(container) {
 
             highShelf = audioContext.createBiquadFilter();
             highShelf.type = 'lowpass';
-            highShelf.frequency.value = 1200;
+            highShelf.frequency.value = 2000; // covers full soprano range (C6 = 1047 Hz)
 
             analyser = audioContext.createAnalyser();
             analyser.fftSize = 4096;

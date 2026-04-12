@@ -10,7 +10,8 @@
  *   noteNameFromPitch(note)          MIDI → human-readable string (e.g. "C4")
  *   yin(buf, sampleRate)             YIN pitch-detection algorithm
  *   createMedianFilter(size?)        Factory: stateful median smoother
- *   getVoiceSuggestion(min, max)     Returns { type, description, badge }
+ *   getVoiceSuggestion(min, max)     Returns { type, description, badge } (SATB)
+ *   getRangeScore(min, max)          Returns { semitones, tier, color }
  */
 
 // ── Note helpers ────────────────────────────────────────────────────────────
@@ -128,66 +129,82 @@ export function createMedianFilter(size = 9) {
     };
 }
 
-// ── Voice-type suggestion engine ────────────────────────────────────────────
+// ── Voice-type suggestion engine — SATB ────────────────────────────────────
 
 /**
- * Derives a voice-type suggestion from the observed pitch range.
- * Returns a plain object ready for direct UI rendering or further processing.
+ * Derives a SATB voice-type suggestion from the observed pitch range.
+ * Works universally for all voice types (male and female).
  *
- * Feature thresholds (MIDI):
- *   41  = F2  – deep bass floor
- *   50  = D3  – tenor lower bound
- *   71  = H4  – tenor upper bound
- *   76  = E5  – countertenor territory
+ * Classification method:
+ *   primary  — centre of range: (minPitch + maxPitch) / 2
+ *   tiebreak — minPitch to separate Tenor from Alto in the overlap zone
  *
- * Priority order: extreme-range > very-low > tenor-range > very-high > middle
+ * SATB + Baritone + Mezzo-Soprano centre thresholds (MIDI):
+ *   centre <  53                    → Bass
+ *   centre <  58                    → Baritone
+ *   centre <  65, minPitch ≤ 53     → Tenor   (can descend to ≈ F3)
+ *   centre <  65, minPitch >  53    → Alto    (female lower bound higher)
+ *   centre <  70                    → Mezzo-Soprano
+ *   centre ≥  70                    → Soprano
+ *   special: range ≥ 28 ST spanning bass + treble → Full Range
  *
- * @param {number} minPitch - Lowest stable MIDI note observed
- * @param {number} maxPitch - Highest stable MIDI note observed
+ * @param {number} minPitch  Lowest stable MIDI note observed
+ * @param {number} maxPitch  Highest stable MIDI note observed
  * @returns {{ type: string, description: string, badge: string }}
  */
 export function getVoiceSuggestion(minPitch, maxPitch) {
-    const isVeryLow     = minPitch <= 41;                   // F2-
-    const isVeryHigh    = maxPitch >= 76;                   // E5+
-    const hasTenorRange = minPitch <= 50 && maxPitch >= 71; // D3–H4
+    const centre    = (minPitch + maxPitch) / 2;
+    const semitones = maxPitch - minPitch;
 
-    // Special case: extreme full range
-    if (isVeryLow && isVeryHigh) {
+    // Special: extraordinary wide compass spanning bass + high treble
+    if (semitones >= 28 && minPitch <= 45 && maxPitch >= 72) {
         return {
-            type:        'Bass / Tenor',
-            description: 'Extremer Gesamtumfang – du beherrschst sowohl tiefste Tiefen als auch strahlende Höhen.',
-            badge:       'Power-Umfang',
+            type:        'Full Range',
+            description: 'Extraordinary compass — you span from bass depths to brilliant highs.',
+            badge:       'Full Compass',
         };
     }
 
-    if (isVeryLow) {
+    if (centre < 53) {
         return {
             type:        'Bass',
-            description: 'Dein tiefes Fundament ist ideal für den Bass.',
-            badge:       'Tiefen-Spezialist',
+            description: 'Your deep, resonant voice anchors the ensemble.',
+            badge:       'Deep Foundation',
         };
     }
-
-    if (hasTenorRange) {
+    if (centre < 58) {
         return {
-            type:        'Tenor',
-            description: 'Dein Umfang deckt die typischen Tenor-Lagen gut ab.',
-            badge:       'Allrounder',
+            type:        'Baritone',
+            description: 'Your voice bridges bass and tenor with rich, warm tones.',
+            badge:       'The Bridge',
         };
     }
-
-    if (isVeryHigh) {
+    if (centre < 65) {
+        // Tenor / Alto overlap zone — lowest note is the discriminator
+        if (minPitch <= 53) {
+            return {
+                type:        'Tenor',
+                description: 'Your bright voice carries the melody with powerful highs.',
+                badge:       'Leading Voice',
+            };
+        }
         return {
-            type:        'Countertenor',
-            description: 'Beeindruckende Höhe! Du könntest die Alt-Stimmen unterstützen.',
-            badge:       'Höhen-Artist',
+            type:        'Alto',
+            description: 'Your strong lower register lends warmth to every harmony.',
+            badge:       'Warm & Deep',
         };
     }
-
+    if (centre < 70) {
+        return {
+            type:        'Mezzo-Soprano',
+            description: 'Your voice blends warmth with brilliance across a wide range.',
+            badge:       'The Blend',
+        };
+    }
     return {
-        type:        'Bariton',
-        description: 'Deine Stimme liegt im soliden mittleren Bereich.',
-        badge:       'Fundament',
+        type:        'Soprano',
+        description: 'Your bright, soaring voice lights up the highest registers.',
+        badge:       'High Flight',
     };
 }
 
@@ -197,25 +214,24 @@ export function getVoiceSuggestion(minPitch, maxPitch) {
  * Converts an observed pitch range into a gamified score with tier label.
  *
  * Tier thresholds (semitones):
- *   < 6   → Aufwärmen  (grey)
- *   6–9   → Solide     (blue)
- *   10–13 → Gut        (green)
- *   14–17 → Stark      (violet)
- *   18–23 → Profi      (gold)
- *   ≥ 24  → Legende    (pink/red)
+ *   <  6  → Warm Up  (slate)
+ *    6–9  → Solid    (blue)
+ *   10–13 → Good     (green)
+ *   14–17 → Strong   (violet)
+ *   18–23 → Pro      (gold)
+ *   ≥ 24  → Legend   (rose / red)
  *
- * @param {number} minPitch - Lowest stable MIDI note observed
- * @param {number} maxPitch - Highest stable MIDI note observed
+ * @param {number} minPitch  Lowest stable MIDI note observed
+ * @param {number} maxPitch  Highest stable MIDI note observed
  * @returns {{ semitones: number, tier: string, color: string }}
  */
 export function getRangeScore(minPitch, maxPitch) {
     const semitones = maxPitch - minPitch;
 
-    if (semitones < 6)  return { semitones, tier: 'Aufwärmen', color: '#94a3b8' };
-    if (semitones < 10) return { semitones, tier: 'Solide',    color: '#60a5fa' };
-    if (semitones < 14) return { semitones, tier: 'Gut',       color: '#34d399' };
-    if (semitones < 18) return { semitones, tier: 'Stark',     color: '#a78bfa' };
-    if (semitones < 24) return { semitones, tier: 'Profi',     color: '#fbbf24' };
-                        return { semitones, tier: 'Legende',   color: '#f43f5e' };
+    if (semitones <  6) return { semitones, tier: 'Warm Up', color: '#94a3b8' };
+    if (semitones < 10) return { semitones, tier: 'Solid',   color: '#60a5fa' };
+    if (semitones < 14) return { semitones, tier: 'Good',    color: '#34d399' };
+    if (semitones < 18) return { semitones, tier: 'Strong',  color: '#a78bfa' };
+    if (semitones < 24) return { semitones, tier: 'Pro',     color: '#fbbf24' };
+                        return { semitones, tier: 'Legend',  color: '#f43f5e' };
 }
-
