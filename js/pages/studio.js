@@ -15,9 +15,8 @@ import {
     getRangeScore,
 } from '../../pitchEngine.js';
 
-import { LevelEngine     } from '../engines/levelEngine.js';
-import { PitchTrailEngine } from '../engines/pitchTrailEngine.js';
-import { WaveEngine       } from '../engines/waveEngine.js';
+import { LevelEngine } from '../engines/levelEngine.js';
+import { WaveEngine  } from '../engines/waveEngine.js';
 
 
 // ── HTML template ─────────────────────────────────────────────
@@ -77,14 +76,7 @@ const HTML = /* html */`
                 </div>
             </div>
 
-            <!-- Pitch trail canvas — compact secondary widget -->
-            <div class="trail-header">
-                <span class="section-label" style="margin-bottom:0">Pitch History</span>
-                <span class="trail-hint">sing to see your trail</span>
-            </div>
-            <div class="trail-wrap trail-wrap--compact">
-                <canvas id="pitchTrailCanvas" aria-label="Pitch history trail"></canvas>
-            </div>
+
 
             <p id="instructionText">
                 Start recording and sing your notes — hold each for at least 1 second.
@@ -207,9 +199,6 @@ export function render(container) {
 
     // ── Engine instantiation ──────────────────────────────────────
     const levelEngine  = new LevelEngine($('levelCanvas'));
-    const trailEngine  = new PitchTrailEngine($('pitchTrailCanvas'), {
-        pitchMin: PITCH_MIN, pitchMax: PITCH_MAX,
-    });
     const waveEngine   = new WaveEngine($('waveCanvas'), {
         pitchMin: PITCH_MIN, pitchMax: PITCH_MAX,
     });
@@ -304,11 +293,11 @@ export function render(container) {
 
         if (rms < RMS_THRESHOLD) {
             stableCount = 0;
-            trailEngine.frame(NaN);       // silence gap in trail
-            waveEngine.frame(NaN, rms);   // wave → idle pose
+            waveEngine.frame(NaN, rms, NaN);  // silence gap in trail + idle EQ
             animationFrameId = requestAnimationFrame(updatePitch);
             return;
         }
+
 
         const frequency = yin(yinBuffer, audioContext.sampleRate);
 
@@ -363,8 +352,7 @@ export function render(container) {
             stableCount = 0;
         }
 
-        trailEngine.frame(trailMidi);                 // feed trail
-        waveEngine.frame(displayMidi ?? NaN, rms);    // feed wave visualizer
+        waveEngine.frame(displayMidi ?? NaN, rms, trailMidi);     // trail + EQ
         animationFrameId = requestAnimationFrame(updatePitch);
     }
 
@@ -479,7 +467,6 @@ export function render(container) {
             // Show level bar and initialise engines
             levelSection.classList.remove('hidden');
             levelEngine.reset();
-            trailEngine.reset();
 
             startBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');
@@ -488,8 +475,17 @@ export function render(container) {
 
             updatePitch();
 
-        } catch {
-            showError('Microphone access denied or unavailable. Please allow microphone access in your browser settings.');
+        } catch (err) {
+            console.error('[studio] Recording setup failed:', err);
+            const isPermission = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
+            const isNoDevice   = err?.name === 'NotFoundError'   || err?.name === 'DevicesNotFoundError';
+            if (isPermission) {
+                showError('Microphone access denied. Please allow microphone access in your browser settings (click the 🔒 icon in the address bar).');
+            } else if (isNoDevice) {
+                showError('No microphone found. Please connect a microphone and try again.');
+            } else {
+                showError(`Setup error: ${err?.message ?? err}`);
+            }
         }
     });
 
