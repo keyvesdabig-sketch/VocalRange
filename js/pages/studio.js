@@ -15,6 +15,8 @@ import {
     getRangeScore,
 } from '../../pitchEngine.js';
 
+import { LevelEngine } from '../engines/levelEngine.js';
+
 // ── Translation layer ─────────────────────────────────────────
 // pitchEngine.js returns German strings; translate here so the engine
 // stays untouched and fully portable.
@@ -90,6 +92,14 @@ const HTML = /* html */`
                 <span class="rec-dot"></span>
                 <span class="rec-label">REC</span>
                 <span id="frequencyDisplay">— Hz</span>
+            </div>
+
+            <!-- Signal level bar (shown only while recording) -->
+            <div id="levelSection" class="level-section hidden">
+                <p class="section-label">Signal Level</p>
+                <div class="level-track">
+                    <canvas id="levelCanvas" aria-label="Signal level meter"></canvas>
+                </div>
             </div>
 
             <p id="instructionText">
@@ -209,6 +219,10 @@ export function render(container) {
     const maxMarker           = $('maxMarker');
     const overlayBottom       = $('overlayBottom');
     const overlayTop          = $('overlayTop');
+    const levelSection        = $('levelSection');
+
+    // ── Engine instantiation ──────────────────────────────────────
+    const levelEngine = new LevelEngine($('levelCanvas'));
 
     // ── State ─────────────────────────────────────────────────
     let audioContext, analyser, microphone, lowShelf, highShelf;
@@ -292,6 +306,9 @@ export function render(container) {
         let rmsSum = 0;
         for (let i = 0; i < yinBuffer.length; i++) rmsSum += yinBuffer[i] ** 2;
         const rms = Math.sqrt(rmsSum / yinBuffer.length);
+
+        // Feed level engine every frame (regardless of RMS gate)
+        levelEngine.frame(rms);
 
         pitchDot.classList.toggle('silent', rms < RMS_THRESHOLD);
 
@@ -455,6 +472,10 @@ export function render(container) {
             displayFreq     = null;
             lastDisplayedHz = -1;
 
+            // Show level bar and initialise engine
+            levelSection.classList.remove('hidden');
+            levelEngine.reset();
+
             startBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');
             stopBtn.disabled = false;
@@ -475,6 +496,7 @@ export function render(container) {
         startBtn.textContent = 'Record Again';
         stopBtn.classList.add('hidden');
         recordingIndicator.classList.add('hidden');
+        levelSection.classList.add('hidden');
         instructionText.textContent = 'Start recording and sing your notes — hold each for at least 1 second.';
         evaluateVoiceType();
     });
