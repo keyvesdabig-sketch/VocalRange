@@ -9,7 +9,7 @@
     <!-- PWA & Mobile -->
     <link rel="manifest" href="manifest.json">
     <!-- theme-color: read at parse time; IDE warning is a known harmless false positive. -->
-    <meta name="theme-color" content="#07080d">
+    <meta name="theme-color" content="#160625">
     <meta name="color-scheme" content="dark">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -23,40 +23,44 @@
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
 
-    <!-- Fonts: Space Grotesk (display) + Inter (body) -->
+    <!-- Fonts: Space Grotesk (display) + Manrope (body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         /* ═══════════════════════════════════════════════════════
-           SIGNAL DARK — Design System
-           VoiceCrack 2.0
+           VOCAL LUMINESCENCE — Design System
+           VoiceCrack 2.1
            ═══════════════════════════════════════════════════════ */
 
         :root {
-            --bg:          #07080d;
-            --surf:        #0c0f18;
-            --card:        #0f1320;
-            --border:      rgba(255, 255, 255, 0.05);
-            --border-cyan: rgba(0, 229, 255, 0.14);
+            /* ── Palette ────────────────────────────────────────── */
+            --bg:        #160625;   /* Deep Midnight Purple */
+            --primary:   #b6a0ff;   /* Electric Violet */
+            --secondary: #00f1fe;   /* Cyan Glow */
+            --tertiary:  #ffe792;   /* Gold — prestige only */
+            --red:       #ff6b8a;   /* Error / Low marker */
+            --on-surface: #f3deff;  /* Violet-tinted white */
 
-            --cyan:   #00e5ff;
-            --mint:   #00ffa3;
-            --indigo: #6366f1;
-            --red:    #ff4d6a;
-            --amber:  #fbbf24;
+            /* ── Surface stack (no hard lines — tonal only) ─────── */
+            --surf-card:   rgba(30, 8, 55, 0.50);   /* Level 1 — The Stage */
+            --surf-comp:   rgba(58, 20, 90, 0.60);  /* Level 2 — Component */
+            --surf-recess: rgba(0,  0,  0,  0.40);  /* Deepest — inputs */
 
-            --text-hi:  #e2e8f5;
-            --text-mid: #7a8899;
-            --text-lo:  #32394a;
+            /* ── Text ───────────────────────────────────────────── */
+            --text-hi:  #f3deff;   /* on-surface, violet-tinted */
+            --text-mid: #9b85c4;   /* muted */
+            --text-lo:  #4a3570;   /* very muted */
 
+            /* ── Fonts ──────────────────────────────────────────── */
             --font-display: 'Space Grotesk', sans-serif;
-            --font-body:    'Inter', sans-serif;
+            --font-body:    'Manrope', sans-serif;
 
-            --radius:    16px;
-            --radius-sm: 10px;
-            --radius-xs: 7px;
+            /* ── Shape ──────────────────────────────────────────── */
+            --radius:    20px;
+            --radius-sm: 14px;
+            --radius-xs: 10px;
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -76,41 +80,46 @@
             position: relative;
         }
 
-        /* ── Ambient background glow orbs ──────────────────────── */
-        body::before,
-        body::after {
-            content: '';
+        /* ── Static organic background blobs ───────────────────── */
+        .bg-blob {
             position: fixed;
             border-radius: 50%;
             pointer-events: none;
             z-index: 0;
         }
-        body::before {
-            width: 700px; height: 700px;
-            top: -250px; left: -200px;
-            background: radial-gradient(circle, rgba(0,229,255,0.045) 0%, transparent 65%);
+        .bg-blob--violet {
+            width: 900px; height: 900px;
+            top: -320px; left: -280px;
+            background: radial-gradient(circle, rgba(182,160,255,0.13) 0%, transparent 60%);
+            filter: blur(50px);
         }
-        body::after {
-            width: 600px; height: 600px;
-            bottom: -180px; right: -180px;
-            background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 65%);
+        .bg-blob--cyan {
+            width: 650px; height: 650px;
+            bottom: -220px; right: -180px;
+            background: radial-gradient(circle, rgba(0,241,254,0.09) 0%, transparent 60%);
+            filter: blur(50px);
+        }
+        .bg-blob--deep {
+            width: 500px; height: 500px;
+            top: 25%; left: 55%;
+            background: radial-gradient(circle, rgba(100,30,200,0.10) 0%, transparent 60%);
+            filter: blur(70px);
         }
 
-        /* ── Main card ──────────────────────────────────────────── */
+        /* ── Main card — no border (tonal glass only) ───────────── */
         #mainCard {
             position: relative;
             z-index: 1;
             width: 100%;
             max-width: 880px;
-            background: rgba(11, 14, 22, 0.88);
+            background: var(--surf-card);
             backdrop-filter: blur(28px);
             -webkit-backdrop-filter: blur(28px);
-            border: 1px solid var(--border-cyan);
             border-radius: var(--radius);
             box-shadow:
-                0 0 0 1px rgba(255,255,255,0.018) inset,
-                0 32px 96px rgba(0,0,0,0.7),
-                0 0 48px rgba(0,229,255,0.025);
+                0 0 0 1px rgba(182,160,255,0.08) inset,
+                0 40px 100px rgba(24,0,76,0.55),
+                0 0 60px rgba(182,160,255,0.04);
             overflow: hidden;
         }
 
@@ -123,10 +132,10 @@
 
         /* ══════════════════════════════════════════════════════════
            LEFT COLUMN — Pitch Meter
+           (surface-container-lowest: dark recess, tonal separation)
            ══════════════════════════════════════════════════════════ */
         #pitchColumn {
-            background: rgba(5, 7, 12, 0.7);
-            border-right: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.28);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -139,11 +148,11 @@
             align-items: center;
             justify-content: center;
             width: 42px; height: 42px;
-            background: rgba(0, 229, 255, 0.06);
-            border: 1px solid rgba(0, 229, 255, 0.14);
+            background: rgba(182, 160, 255, 0.08);
             border-radius: 11px;
             margin-bottom: 24px;
             flex-shrink: 0;
+            box-shadow: 0 0 0 1px rgba(182,160,255,0.14) inset;
         }
         .brand-mark img { width: 24px; height: 24px; }
 
@@ -154,48 +163,47 @@
             display: flex;
             justify-content: center;
             align-items: stretch;
-            padding: 0 44px; /* room for labels */
+            padding: 0 44px;
             position: relative;
         }
 
         /* ── Pitch Bar ─────────────────────────────────────────── */
         /*
          * MIDI display range: A1(33) – G5(79), 46 semitones.
-         * Gradient: Indigo (deep/low) → Cyan (mid) → Mint (high).
-         * pos% = (midi − 33) / 46
+         * Gradient: Deep Purple (low) → Electric Violet (mid) → Cyan Glow (high).
          */
         #pitchBar {
             width: 48px;
             border-radius: var(--radius-xs);
             background: linear-gradient(
                 to top,
-                #4f46e5  0%,
-                #00e5ff 55%,
-                #00ffa3 100%
+                #18004c  0%,      /* Deep violet — bass */
+                #b6a0ff 55%,     /* Electric Violet — midrange */
+                #00f1fe 100%     /* Cyan Glow — high */
             );
             position: relative;
         }
 
-        /* Zone-unlock overlays — retreat as range is revealed */
+        /* Zone-unlock overlays */
         .pitch-overlay {
             position: absolute;
             left: 0; right: 0;
-            background: var(--surf);
+            background: rgba(0, 0, 0, 0.75);
             transition: height 0.35s ease-out;
             z-index: 2;
         }
         #overlayBottom { bottom: 0; height: 100%; }
         #overlayTop    { top:    0; height: 100%; }
 
-        /* Live pitch dot — glowing cyan circle */
+        /* Live pitch dot — glowing violet circle */
         #pitchDot {
             position: absolute;
             left: 50%;
             bottom: 0;
             width: 17px; height: 17px;
             border-radius: 50%;
-            background: var(--cyan);
-            box-shadow: 0 0 10px var(--cyan), 0 0 22px rgba(0,229,255,0.45);
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary), 0 0 24px rgba(182,160,255,0.5);
             transform: translateX(-50%) translateY(50%);
             opacity: 0;
             transition: opacity 0.2s, background 0.25s, box-shadow 0.25s;
@@ -203,7 +211,7 @@
             z-index: 10;
         }
         #pitchDot.active { opacity: 1; }
-        #pitchDot.silent { background: #1e2535; box-shadow: none; opacity: 0.5; }
+        #pitchDot.silent { background: #2a1a45; box-shadow: none; opacity: 0.45; }
 
         /* Min / Max markers */
         .pitch-marker {
@@ -215,8 +223,8 @@
             transition: bottom 0.15s ease-out;
             z-index: 5;
         }
-        .marker-min { background: var(--red);  box-shadow: 0 0 7px rgba(255,77,106,0.55); }
-        .marker-max { background: var(--mint); box-shadow: 0 0 7px rgba(0,255,163,0.55); }
+        .marker-min { background: var(--red);       box-shadow: 0 0 7px rgba(255,107,138,0.6); }
+        .marker-max { background: var(--secondary);  box-shadow: 0 0 7px rgba(0,241,254,0.6); }
 
         /* Note labels — left of bar */
         .note-label {
@@ -231,15 +239,14 @@
             line-height: 1;
             z-index: 8;
         }
-        /* Positions — MIDI range 33–79 (46 ST), pos = (midi−33)/46 */
-        .note-g5 { bottom: 100%;  } /* MIDI 79 */
-        .note-c5 { bottom: 84.8%; } /* MIDI 72 */
-        .note-c4 { bottom: 58.7%; } /* MIDI 60 */
-        .note-c3 { bottom: 32.6%; } /* MIDI 48 */
-        .note-c2 { bottom:  6.5%; } /* MIDI 36 */
-        .note-a1 { bottom:  0%;   } /* MIDI 33 */
+        .note-g5 { bottom: 100%;  }
+        .note-c5 { bottom: 84.8%; }
+        .note-c4 { bottom: 58.7%; }
+        .note-c3 { bottom: 32.6%; }
+        .note-c2 { bottom:  6.5%; }
+        .note-a1 { bottom:  0%;   }
 
-        /* Mini piano decorators */
+        /* Piano key decorators */
         #pianoBar {
             position: absolute;
             left: -26px; top: 0; bottom: 0;
@@ -257,14 +264,14 @@
         .pk-white {
             position: absolute;
             left: 0; right: 0;
-            background: rgba(255,255,255,0.04);
-            border-top: 0.5px solid rgba(255,255,255,0.07);
+            background: rgba(182,160,255,0.04);
+            border-top: 0.5px solid rgba(182,160,255,0.06);
         }
         .pk-black {
             position: absolute;
             left: 0; right: 36%;
-            background: rgba(0,0,0,0.42);
-            border-top: 0.5px solid rgba(0,0,0,0.08);
+            background: rgba(0,0,0,0.5);
+            border-top: 0.5px solid rgba(0,0,0,0.1);
             z-index: 2;
         }
 
@@ -286,7 +293,7 @@
             font-weight: 700;
             letter-spacing: -0.03em;
             line-height: 1;
-            background: linear-gradient(135deg, #ffffff 0%, #9aafc8 100%);
+            background: linear-gradient(135deg, #f3deff 0%, #b6a0ff 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -299,7 +306,7 @@
             text-transform: uppercase;
             margin-top: 5px;
             padding-bottom: 18px;
-            border-bottom: 1px solid var(--border);
+            /* No border — tonal transition via negative space only */
         }
 
         /* ── Recording indicator ────────────────────────────────── */
@@ -307,10 +314,11 @@
             display: flex;
             align-items: center;
             gap: 9px;
-            padding: 8px 14px;
-            background: rgba(255, 77, 106, 0.06);
-            border: 1px solid rgba(255, 77, 106, 0.2);
+            padding: 9px 14px;
+            background: rgba(255, 107, 138, 0.07);
             border-radius: var(--radius-xs);
+            /* Ghost border (accessibility fallback) */
+            box-shadow: 0 0 0 1px rgba(255,107,138,0.15) inset;
         }
         @keyframes rec-pulse {
             0%, 100% { opacity: 1; transform: scale(1); }
@@ -336,7 +344,7 @@
             margin-left: auto;
             font-size: 12px;
             font-weight: 700;
-            background: linear-gradient(135deg, var(--cyan), var(--mint));
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -361,8 +369,8 @@
             padding: 13px 20px;
             border: none;
             border-radius: 9999px;
-            background: linear-gradient(135deg, var(--cyan), var(--mint));
-            color: #030d08;
+            background: linear-gradient(135deg, #b6a0ff, #8b6fe8);
+            color: #0a0020;
             font-family: var(--font-display);
             font-size: 13px;
             font-weight: 700;
@@ -374,41 +382,43 @@
         .btn-primary:hover:not(:disabled) {
             opacity: 0.9;
             transform: scale(1.016);
-            box-shadow: 0 0 28px rgba(0, 229, 255, 0.28);
+            box-shadow: 0 0 30px rgba(182,160,255,0.3);
         }
         .btn-primary:active:not(:disabled) { transform: scale(0.99); }
         .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
 
+        /* Secondary button — Cyan Glow ghost */
         .btn-ghost {
             width: 100%;
             padding: 13px 20px;
-            border: 1px solid var(--border);
+            border: none;
             border-radius: 9999px;
-            background: transparent;
-            color: var(--text-mid);
+            background: rgba(0,241,254,0.05);
+            color: var(--secondary);
             font-family: var(--font-display);
             font-size: 13px;
             font-weight: 700;
             letter-spacing: 0.07em;
             text-transform: uppercase;
             cursor: pointer;
-            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            /* Ghost border via box-shadow — no 1px solid */
+            box-shadow: 0 0 0 1px rgba(0,241,254,0.2) inset;
+            transition: background 0.15s, box-shadow 0.15s, backdrop-filter 0.2s;
         }
         .btn-ghost:hover:not(:disabled) {
-            background: rgba(255,255,255,0.04);
-            color: var(--text-hi);
-            border-color: rgba(255,255,255,0.13);
+            background: rgba(0,241,254,0.1);
+            box-shadow: 0 0 0 1px rgba(0,241,254,0.35) inset;
         }
         .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
 
         /* ── Error box ──────────────────────────────────────────── */
         #errorBox {
-            background: rgba(255,77,106,0.06);
-            border: 1px solid rgba(255,77,106,0.22);
+            background: rgba(255,107,138,0.07);
+            box-shadow: 0 0 0 1px rgba(255,107,138,0.15) inset;
             border-radius: var(--radius-xs);
             padding: 11px 14px;
             font-size: 12px;
-            color: #ff8fa3;
+            color: #ffb3c1;
         }
 
         /* ── Measurement mini-cards ─────────────────────────────── */
@@ -425,9 +435,9 @@
             grid-template-columns: 1fr 1fr;
             gap: 9px;
         }
+        /* No borders — tonal surface shift creates depth */
         .measure-card {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid var(--border);
+            background: var(--surf-recess);
             border-radius: var(--radius-xs);
             padding: 11px 13px;
         }
@@ -439,7 +449,7 @@
             margin-bottom: 7px;
         }
         .label-low  { color: var(--red); }
-        .label-high { color: var(--mint); }
+        .label-high { color: var(--secondary); }
         .measure-val {
             display: flex;
             align-items: center;
@@ -450,12 +460,12 @@
             border-radius: 50%;
             flex-shrink: 0;
         }
-        .dot-low  { background: var(--red);  box-shadow: 0 0 5px var(--red); }
-        .dot-high { background: var(--mint); box-shadow: 0 0 5px var(--mint); }
+        .dot-low  { background: var(--red);       box-shadow: 0 0 5px var(--red); }
+        .dot-high { background: var(--secondary);  box-shadow: 0 0 5px var(--secondary); }
         .note-val {
             font-size: 22px;
             font-weight: 700;
-            color: var(--text-hi);
+            color: var(--on-surface);
             font-family: var(--font-display);
             line-height: 1;
         }
@@ -466,11 +476,14 @@
             to   { opacity: 1; transform: translateY(0); }
         }
         #resultBox:not(.hidden) { animation: fade-up 0.3s ease-out; }
+        /* Level 2 glass — higher blur, higher opacity */
         #resultBox {
-            background: rgba(0, 229, 255, 0.03);
-            border: 1px solid rgba(0, 229, 255, 0.12);
+            background: var(--surf-comp);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
             border-radius: var(--radius-sm);
             padding: 18px;
+            box-shadow: 0 0 0 1px rgba(182,160,255,0.08) inset;
         }
         .result-label {
             font-size: 9px;
@@ -486,7 +499,7 @@
             font-weight: 700;
             letter-spacing: -0.02em;
             line-height: 1;
-            background: linear-gradient(135deg, var(--cyan), var(--mint));
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -502,20 +515,25 @@
             margin-top: 9px;
             padding: 3px 11px;
             border-radius: 999px;
-            background: rgba(0,229,255,0.09);
-            border: 1px solid rgba(0,229,255,0.2);
-            color: var(--cyan);
+            background: rgba(182,160,255,0.10);
+            color: var(--primary);
             font-size: 9px;
             font-weight: 700;
             letter-spacing: 0.1em;
             text-transform: uppercase;
+            /* Ghost border — accessibility fallback */
+            box-shadow: 0 0 0 1px rgba(182,160,255,0.18) inset;
         }
 
         /* Range score */
         .score-section {
             margin-top: 14px;
             padding-top: 14px;
-            border-top: 1px solid rgba(255,255,255,0.05);
+            /* Tonal separator — background shift via gradient */
+            background: linear-gradient(to bottom, rgba(182,160,255,0.04) 0%, transparent 100%);
+            border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+            margin-left: -18px; margin-right: -18px;
+            padding-left: 18px; padding-right: 18px;
         }
         .score-row {
             display: flex;
@@ -548,7 +566,7 @@
         #personalBestDisplay {
             font-size: 18px;
             font-weight: 700;
-            color: var(--text-hi);
+            color: var(--on-surface);
             font-family: var(--font-display);
         }
         .score-pills {
@@ -565,6 +583,7 @@
             padding: 3px 10px;
             border-radius: 999px;
         }
+        /* Record badge — tertiary gold (prestige only) */
         .record-badge {
             display: inline-block;
             font-size: 9px;
@@ -573,8 +592,8 @@
             text-transform: uppercase;
             padding: 3px 10px;
             border-radius: 999px;
-            background: linear-gradient(135deg, var(--amber), #f59e0b);
-            color: #1a0e00;
+            background: linear-gradient(135deg, #ffe792, #f5d44a);
+            color: #2a1a00;
         }
         @keyframes record-pulse {
             0%, 100% { transform: scale(1); }
@@ -592,12 +611,16 @@
                 min-height: 0;
             }
             #pitchColumn {
-                border-right: none;
-                border-bottom: 1px solid var(--border);
                 flex-direction: row;
                 padding: 16px 20px;
                 height: 140px;
                 gap: 14px;
+                /* Tonal separation on mobile — bottom gradient instead of border */
+                background: linear-gradient(
+                    to bottom,
+                    rgba(0,0,0,0.30) 0%,
+                    rgba(0,0,0,0.08) 100%
+                );
             }
             .brand-mark { margin-bottom: 0; align-self: center; }
             .pitch-bar-wrap {
@@ -613,6 +636,11 @@
 </head>
 
 <body>
+
+    <!-- Static organic background blobs (Vocal Luminescence) -->
+    <div class="bg-blob bg-blob--violet"></div>
+    <div class="bg-blob bg-blob--cyan"></div>
+    <div class="bg-blob bg-blob--deep"></div>
 
     <div id="mainCard">
         <div class="app-grid">
