@@ -1,4 +1,4 @@
-# VoiceCrack – Design System: Vocal Luminescence
+# VocalRange – Design System: Vocal Luminescence
 
 > Version: 2.2 · Last updated: 2026-04-12
 

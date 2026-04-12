@@ -1,4 +1,4 @@
-# VoiceCrack – Pitch Engine Parameter Reference
+# VocalRange – Pitch Engine Parameter Reference
 
 Alle Stellschrauben der Audio-Analyse, geordnet nach Pipeline-Stufe.  
 Änderungen an diesen Werten beeinflussen direkt Empfindlichkeit, Stabilität und Reaktionszeit.

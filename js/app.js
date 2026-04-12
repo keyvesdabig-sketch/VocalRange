@@ -1,5 +1,5 @@
 /**
- * app.js — VoiceCrack Router & Shell
+ * app.js — VocalRange Router & Shell
  *
  * Hash-based routing: #studio | #vitals | #arena | #profile
  * Each page module exports render(container) → optional cleanup fn.
@@ -66,7 +66,7 @@ navigate();
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
-            .then(() => console.log('[VoiceCrack] Service Worker registered.'))
-            .catch(err => console.warn('[VoiceCrack] Service Worker failed:', err));
+            .then(() => console.log('[VocalRange] Service Worker registered.'))
+            .catch(err => console.warn('[VocalRange] Service Worker failed:', err));
     });
 }

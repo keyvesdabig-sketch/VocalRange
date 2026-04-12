@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voicecrack-v4';
+const CACHE_NAME = 'vocalrange-v1';
 const ASSETS = [
     './',
     './index.html',

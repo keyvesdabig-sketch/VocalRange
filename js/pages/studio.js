@@ -28,7 +28,7 @@ const HTML = /* html */`
         <!-- ════════════ LEFT — Pitch Meter ════════════ -->
         <div id="pitchColumn">
             <div class="brand-mark">
-                <img src="favicon.svg" alt="VoiceCrack">
+                <img src="favicon.svg" alt="VocalRange">
             </div>
             <div class="pitch-bar-wrap">
                 <div id="pitchBar">
@@ -53,7 +53,7 @@ const HTML = /* html */`
         <!-- ════════════ RIGHT — Controls & Results ════════════ -->
         <div class="controls-col">
             <header>
-                <h1 class="app-title">VoiceCrack</h1>
+                <h1 class="app-title">VocalRange</h1>
                 <p class="app-subtitle">Vocal Range Analyzer</p>
             </header>
 

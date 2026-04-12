@@ -1,5 +1,5 @@
 /**
- * VoiceCrack – Pitch Engine
+ * VocalRange – Pitch Engine
  * ══════════════════════════════════════════════════════════════════════
  * Pure logic layer: pitch detection, music math, voice analysis.
  * Framework-agnostic ES module – can be imported in Vanilla JS or

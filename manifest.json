@@ -1,7 +1,7 @@
 {
-  "name": "VoiceCrack – Vocal Range Analyzer",
-  "short_name": "VoiceCrack",
-  "description": "Analyze your vocal range in seconds. Sing your lowest and highest notes — VoiceCrack identifies your voice type instantly.",
+  "name": "VocalRange – Vocal Range Analyzer",
+  "short_name": "VocalRange",
+  "description": "Find your voice type in seconds. Sing into your microphone — VocalRange analyzes your vocal range using the YIN pitch detection algorithm.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#07080d",

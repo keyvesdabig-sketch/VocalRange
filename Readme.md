@@ -1,4 +1,4 @@
-# VoiceCrack – Vocal Range Analyzer
+# VocalRange – Vocal Range Analyzer
 
 > **Status:** Active Development  
 > A standalone Progressive Web App — no backend, no framework, no build step.
@@ -7,7 +7,7 @@
 
 ## What it does
 
-VoiceCrack detects your vocal range in seconds. Sing your lowest and highest notes into your microphone, and the app classifies your voice type across the full **SATB spectrum** (Soprano, Mezzo-Soprano, Alto, Tenor, Baritone, Bass, Full Range) — with a gamified range score and real-time visual feedback.
+VocalRange detects your vocal range in seconds. Sing your lowest and highest notes into your microphone, and the app classifies your voice type across the full **SATB spectrum** (Soprano, Mezzo-Soprano, Alto, Tenor, Baritone, Bass, Full Range) — with a gamified range score and real-time visual feedback.
 
 ---
 
@@ -25,7 +25,7 @@ The **Pitch History trail** visualises your pitch in real time while you sing. T
 
 ## Architecture
 
-VoiceCrack is a vanilla JS SPA without a build step.
+VocalRange is a vanilla JS SPA without a build step.
 
 ```
 VoiceCrackPublic/
