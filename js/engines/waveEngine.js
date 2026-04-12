@@ -1,46 +1,49 @@
 /**
- * waveEngine.js — Unified Vocal Interface
+ * waveEngine.js — Unified Vocal Interface v3
  *
- * One canvas, two integrated vertical zones sharing a common pitch-colour language:
+ * One canvas, two side-by-side zones sharing a common pitch-colour language:
  *
- *  ┌──────────────────────────────────────────┐
- *  │  PITCH HISTORY (scrolling, Y = MIDI)     │  55 % of canvas
- *  │  Grid lines at C2 C3 C4 C5 C6           │
- *  ├──────────────────────────────────────────┤  divider
- *  │  ▌  ▌▌ ▌▌▌ ▌▌▌ ▌▌ ▌▌ ▌  ▌             │  38 % of canvas
- *  │  FREQUENCY SPECTRUM (7 vocal bands)      │
- *  └──────────────────────────────────────────┘
+ *  ┌──EQ─────┬──────── Pitch History Trail ──────────────────────────┐
+ *  │  ▬  7   │  C6 · · · · · · · · · · · · · · · · · · · · · · · ·  │
+ *  │ ▬▬  6   │  C5 · · · · · · · · · · · · · · · · · · · · · · · ·  │
+ *  │▬▬▬  5   │  C4 · · · · ●────────●●──────────●· · · · · · · · ·  │
+ *  │ ▬▬  4   │  C3 · · · · · · · · · · · · · · · · · · · · · · · ·  │
+ *  │  ▬  3   │  C2 · · · · · · · · · · · · · · · · · · · · · · · ·  │
+ *  │  ·  2   │                                                        │
+ *  │  ·  1   │                                                        │
+ *  └─────────┴────────────────────────────────────────────────────────┘
+ *   18%                        82%
  *
- * Colour: same violet → cyan gradient for both zones,
- *         driven by the singer's current MIDI pitch.
+ * EQ (left):   7 horizontal bars growing rightward — subtle, low-opacity.
+ *              Shows live frequency spectrum during recording; hidden in idle.
  *
- * Scalar mappings:
- *   RMS    → EQ bar height + glow intensity
- *   Pitch  → unified colour temperature
- *   Time   → trail X position (right = now, left = past)
+ * Trail (right): Scrolling pitch line, Y = MIDI note.
+ *              C-octave grid lines span the full canvas width, connecting zones.
+ *
+ * Colour: unified violet→cyan gradient driven by MIDI pitch register.
  *
  * API:
  *   new WaveEngine(canvasEl, { pitchMin, pitchMax })
- *   .setAnalyser(node)           — attach AnalyserNode (recording start)
- *   .clearAnalyser()             — detach (recording stop → idle)
+ *   .setAnalyser(node)                    — attach AnalyserNode (recording start)
+ *   .clearAnalyser()                      — detach (recording stop → idle)
  *   .frame(smoothedMidi, rms, trailMidi)  — feed each RAF frame
- *   .reset()                     — signal idle
- *   .stop()                      — cancel internal RAF (page cleanup)
+ *   .reset()                              — signal idle
+ *   .stop()                               — cancel internal RAF (page cleanup)
  */
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const RMS_GATE       = 0.015;
-const PITCH_MIN_D    = 36;           // MIDI C2
-const PITCH_MAX_D    = 84;           // MIDI C6
-const TRAIL_DURATION = 14_000;       // ms of trail history visible
+const PITCH_MIN_D    = 36;            // MIDI C2
+const PITCH_MAX_D    = 84;            // MIDI C6
+const TRAIL_DURATION = 14_000;        // ms of trail history visible
 
-// Layout ratios (of total canvas height)
-const TRAIL_RATIO    = 0.54;         // pitch trail area
-const GAP_RATIO      = 0.06;         // space between trail and EQ
-const EQ_RATIO       = 0.33;         // EQ bars area
+// Layout (fraction of canvas width)
+const EQ_W_RATIO    = 0.18;           // EQ zone width
+const GAP_W_RATIO   = 0.03;           // gap between EQ and trail
+const TRAIL_X_RATIO = EQ_W_RATIO + GAP_W_RATIO;  // 0.21
 
-// 7 logarithmically-spaced vocal frequency bands
+// 7 vocal frequency bands (logarithmically spaced)
 const FREQ_BANDS = [
     [  80,  150],
     [ 150,  280],
@@ -54,11 +57,9 @@ const FREQ_BANDS = [
 // Per-band noise gates (higher for low bands that carry room noise)
 const BAND_GATES = [0.28, 0.22, 0.15, 0.08, 0.06, 0.05, 0.04];
 
-const BAR_COUNT  = 7;
-const BAR_MULTS  = [0.36, 0.62, 0.84, 1.0, 0.84, 0.62, 0.36]; // idle arch
-const BAR_PHASES = [0.0,  0.72, 1.44, 0.0, -1.44, -0.72, 0.0];
+const BAR_COUNT = 7;
 
-// C-note MIDI values for grid labels
+// C-note grid reference lines
 const C_OCTAVES = [
     { midi: 36, label: 'C2' },
     { midi: 48, label: 'C3' },
@@ -67,7 +68,7 @@ const C_OCTAVES = [
     { midi: 84, label: 'C6' },
 ];
 
-// ── Class ────────────────────────────────────────────────────────────────────
+// ── Class ─────────────────────────────────────────────────────────────────────
 
 export class WaveEngine {
 
@@ -84,9 +85,9 @@ export class WaveEngine {
     #barSmooth = new Array(BAR_COUNT).fill(0);
 
     // Pitch trail
-    #trail     = [];          // [{midi, t}]  — NaN midi = silence gap
+    #trail     = [];           // [{midi, t}] — NaN midi = silence gap
 
-    // Shared pitch colour state
+    // Shared state
     #midi      = NaN;
     #isIdle    = true;
     #phase     = 0;
@@ -106,28 +107,27 @@ export class WaveEngine {
         this.#loop();
     }
 
-    /** Attach a real AnalyserNode → spectrum mode. */
+    /** Attach AnalyserNode → spectrum mode, fresh trail. */
     setAnalyser(node) {
         this.#analyser = node;
         this.#freqData = new Uint8Array(node.frequencyBinCount);
         this.#barSmooth.fill(0);
-        this.#trail    = [];      // fresh trail for new session
+        this.#trail    = [];
         this.#isIdle   = false;
     }
 
-    /** Detach analyser → idle breathing mode. */
+    /** Detach → idle mode.  Trail is kept so singer can review after stopping. */
     clearAnalyser() {
         this.#analyser = null;
         this.#freqData = null;
         this.#isIdle   = true;
-        // keep trail so singer can review after stopping
     }
 
     /**
-     * Feed live values from the recording loop each frame.
+     * Feed values each recording frame.
      * @param {number} smoothedMidi  EMA-smoothed MIDI (colour)
      * @param {number} rms           Raw RMS amplitude
-     * @param {number} [trailMidi]   Median-filtered MIDI for trail line (or NaN)
+     * @param {number} [trailMidi]   Median-filtered MIDI for trail (or NaN for gap)
      */
     frame(smoothedMidi, rms, trailMidi = NaN) {
         const silent = !isFinite(smoothedMidi) || rms < RMS_GATE;
@@ -136,16 +136,12 @@ export class WaveEngine {
                 ? this.#ema(this.#midi, smoothedMidi, 0.08)
                 : smoothedMidi;
         }
-
         // Accumulate trail only while recording
         if (this.#analyser) {
             const now = performance.now();
             this.#trail.push({ midi: isFinite(trailMidi) ? trailMidi : NaN, t: now });
-            // Prune entries older than visible window
             const cutoff = now - TRAIL_DURATION;
-            while (this.#trail.length && this.#trail[0].t < cutoff) {
-                this.#trail.shift();
-            }
+            while (this.#trail.length && this.#trail[0].t < cutoff) this.#trail.shift();
         }
     }
 
@@ -156,7 +152,7 @@ export class WaveEngine {
         this.#rafId = null;
     }
 
-    // ── Private ──────────────────────────────────────────────────────────────
+    // ── Private ───────────────────────────────────────────────────────────────
 
     #loop() {
         this.#draw();
@@ -180,11 +176,8 @@ export class WaveEngine {
         const w = this.#w, h = this.#h, dpr = this.#dpr;
         ctx.clearRect(0, 0, w, h);
 
-        // ── Zone geometry ─────────────────────────────────────────
-        const trailH  = Math.round(h * TRAIL_RATIO);
-        const eqTop   = trailH + Math.round(h * GAP_RATIO);
-        const eqH     = Math.round(h * EQ_RATIO);
-        const baseY   = eqTop + eqH;
+        // ── Advance phase (idle breathing for EQ) ─────────────────
+        this.#phase += this.#isIdle ? 0.016 : 0.048;
 
         // ── Colour from pitch ─────────────────────────────────────
         const norm = isFinite(this.#midi)
@@ -192,81 +185,107 @@ export class WaveEngine {
             : 0.28;
         const [cr, cg, cb] = this.#pitchRGB(norm);
 
-        // ── Draw pitch trail (top zone) ───────────────────────────
-        this.#drawTrail(ctx, w, trailH, dpr, cr, cg, cb);
+        // ── Geometry ──────────────────────────────────────────────
+        const padV    = Math.round(h * 0.08);
+        const innerH  = h - 2 * padV;
+        const eqZoneW = Math.round(w * EQ_W_RATIO);
+        const trailX  = Math.round(w * TRAIL_X_RATIO);
+        const trailW  = w - trailX;
 
-        // ── Divider ───────────────────────────────────────────────
-        const divY = trailH + Math.round(h * GAP_RATIO * 0.5);
-        const divG = ctx.createLinearGradient(0, 0, w, 0);
-        divG.addColorStop(0,   'transparent');
-        divG.addColorStop(0.2, `rgba(${cr},${cg},${cb},0.18)`);
-        divG.addColorStop(0.8, `rgba(${cr},${cg},${cb},0.18)`);
-        divG.addColorStop(1,   'transparent');
-        ctx.save();
-        ctx.strokeStyle = divG;
-        ctx.lineWidth   = Math.round(dpr);
-        ctx.beginPath();
-        ctx.moveTo(0, divY);
-        ctx.lineTo(w, divY);
-        ctx.stroke();
-        ctx.restore();
+        // 1. Full-width grid (behind both zones)
+        this.#drawGrid(ctx, w, h, padV, innerH, dpr, cr, cg, cb);
 
-        // ── Draw EQ bars (bottom zone) ────────────────────────────
-        this.#drawEQ(ctx, w, eqTop, eqH, baseY, dpr, cr, cg, cb);
+        // 2. EQ horizontal bars (left zone)
+        this.#drawEQH(ctx, eqZoneW, h, padV, innerH, dpr, cr, cg, cb);
+
+        // 3. Pitch trail (right zone)
+        this.#drawTrail(ctx, trailX, trailW, h, padV, innerH, dpr, cr, cg, cb);
     }
 
-    // ── Trail ─────────────────────────────────────────────────────────────────
+    // ── Grid ──────────────────────────────────────────────────────────────────
 
-    #drawTrail(ctx, w, h, dpr, cr, cg, cb) {
-        const padV  = Math.round(h * 0.10);   // vertical padding
-        const innerH = h - 2 * padV;           // usable height
-        const now   = performance.now();
-
-        // ── C-octave grid lines ──────────────────────────────────
+    #drawGrid(ctx, w, h, padV, innerH, dpr, cr, cg, cb) {
         ctx.save();
-        ctx.font      = `${Math.round(9 * dpr)}px system-ui, sans-serif`;
-        ctx.textAlign = 'left';
+        ctx.setLineDash([2 * dpr, 6 * dpr]);
+        ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.10)`;
+        ctx.lineWidth   = Math.round(dpr);
+        ctx.font        = `${Math.round(9 * dpr)}px system-ui, sans-serif`;
+        ctx.textAlign   = 'right';
+        ctx.fillStyle   = `rgba(${cr},${cg},${cb},0.28)`;
 
         for (const { midi, label } of C_OCTAVES) {
             const yn = (midi - this.#pitchMin) / this.#pitchRange;
-            const y  = (h - padV) - yn * innerH;
-
-            // line
-            ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.12)`;
-            ctx.lineWidth   = Math.round(dpr);
-            ctx.setLineDash([3 * dpr, 5 * dpr]);
+            const y  = padV + innerH - Math.round(yn * innerH);
             ctx.beginPath();
             ctx.moveTo(0, y);
             ctx.lineTo(w, y);
             ctx.stroke();
-
-            // label
-            ctx.fillStyle = `rgba(${cr},${cg},${cb},0.35)`;
-            ctx.fillText(label, 4 * dpr, y - 3 * dpr);
+            ctx.fillText(label, w - 4 * dpr, y - 3 * dpr);
         }
+
         ctx.setLineDash([]);
         ctx.restore();
+    }
 
-        // ── Trail line ───────────────────────────────────────────
-        if (this.#trail.length < 2) {
-            // Idle hint text
-            if (this.#isIdle) {
-                ctx.save();
-                ctx.fillStyle = `rgba(${cr},${cg},${cb},0.22)`;
-                ctx.font      = `${Math.round(11 * dpr)}px system-ui, sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.fillText('sing to see your pitch trail', w / 2, h / 2);
-                ctx.restore();
-            }
-            return;
+    // ── EQ Horizontal Bars ────────────────────────────────────────────────────
+
+    #drawEQH(ctx, zoneW, h, padV, innerH, dpr, cr, cg, cb) {
+        // EQ is only shown during active recording (not in idle)
+        if (!this.#analyser || !this.#freqData) return;
+
+        this.#analyser.getByteFrequencyData(this.#freqData);
+        const sr  = this.#analyser.context.sampleRate;
+        const fft = this.#analyser.fftSize;
+
+        const segH  = innerH / BAR_COUNT;
+        const barH  = Math.max(2 * dpr, segH * 0.38);   // 38% fill, rest is gap
+
+        for (let i = 0; i < BAR_COUNT; i++) {
+            // i = 0 → band 1 (bass) at bottom; i = 6 → band 7 (treble) at top
+            const [lo, hi] = FREQ_BANDS[i];
+            const raw   = this.#bandLevel(this.#freqData, sr, fft, lo, hi);
+            const gate  = BAND_GATES[i];
+            const gated = raw < gate ? 0 : (raw - gate) / (1 - gate);
+            const scaled = Math.min(1, gated * 1.3);
+
+            const attackA = 0.18;
+            const decayA  = i < 3 ? 0.14 : 0.08;
+            const alpha   = scaled > this.#barSmooth[i] ? attackA : decayA;
+            this.#barSmooth[i] = this.#ema(this.#barSmooth[i], scaled, alpha);
+
+            const barW   = Math.max(2 * dpr, this.#barSmooth[i] * zoneW * 0.90);
+            const yCenter = padV + innerH - segH * (i + 0.5);
+            const y      = Math.round(yCenter - barH / 2);
+            const r      = Math.min(barH / 2, 3 * dpr);
+
+            // Gradient: solid left → fade to transparent right
+            const grad = ctx.createLinearGradient(0, 0, barW, 0);
+            grad.addColorStop(0,   `rgba(${cr},${cg},${cb},0.55)`);
+            grad.addColorStop(0.7, `rgba(${cr},${cg},${cb},0.25)`);
+            grad.addColorStop(1,   `rgba(${cr},${cg},${cb},0.04)`);
+
+            ctx.save();
+            ctx.fillStyle = grad;
+            this.#roundedRight(ctx, 0, y, barW, barH, r);
+            ctx.fill();
+            ctx.restore();
         }
+    }
+
+    // ── Pitch Trail ───────────────────────────────────────────────────────────
+
+    #drawTrail(ctx, startX, trailW, h, padV, innerH, dpr, cr, cg, cb) {
+        const now = performance.now();
+
+        if (this.#trail.length < 2) return;
+
 
         ctx.save();
         ctx.lineWidth   = 2.5 * dpr;
         ctx.lineJoin    = 'round';
         ctx.lineCap     = 'round';
-        ctx.shadowColor = `rgba(${cr},${cg},${cb},0.75)`;
-        ctx.shadowBlur  = 8 * dpr;
+        ctx.shadowColor = `rgba(${cr},${cg},${cb},0.70)`;
+        ctx.shadowBlur  = 7 * dpr;
         ctx.strokeStyle = `rgba(${cr},${cg},${cb},1.0)`;
 
         ctx.beginPath();
@@ -274,101 +293,34 @@ export class WaveEngine {
 
         for (const pt of this.#trail) {
             const xf = (pt.t - (now - TRAIL_DURATION)) / TRAIL_DURATION;
-            const x  = Math.round(xf * w);
+            const x  = Math.round(startX + xf * trailW);
 
-            if (!isFinite(pt.midi)) {
-                pen = false;
-                continue;
-            }
+            if (!isFinite(pt.midi)) { pen = false; continue; }
 
             const yn = (pt.midi - this.#pitchMin) / this.#pitchRange;
-            const y  = (h - padV) - Math.max(0, Math.min(1, yn)) * innerH;
+            const y  = Math.round(padV + innerH - Math.max(0, Math.min(1, yn)) * innerH);
 
             if (!pen) { ctx.moveTo(x, y); pen = true; }
             else       { ctx.lineTo(x, y); }
         }
-        ctx.stroke();
-        ctx.restore();
-    }
 
-    // ── EQ Bars ───────────────────────────────────────────────────────────────
-
-    #drawEQ(ctx, w, eqTop, eqH, baseY, dpr, cr, cg, cb) {
-        // Bar geometry
-        const margin  = w * 0.07;
-        const availW  = w - 2 * margin;
-        const unit    = Math.floor(availW / (BAR_COUNT * 3 + (BAR_COUNT - 1)));
-        const barW    = unit * 3;
-        const gap     = unit;
-        const totalW  = BAR_COUNT * barW + (BAR_COUNT - 1) * gap;
-        const startX  = (w - totalW) / 2;
-        const maxBarH = eqH;
-
-        // Get heights
-        const heights = new Array(BAR_COUNT);
-
-        if (this.#analyser && this.#freqData) {
-            // ── Spectrum mode ────────────────────────────────────
-            this.#phase += 0.048;
-            this.#analyser.getByteFrequencyData(this.#freqData);
-            const sr  = this.#analyser.context.sampleRate;
-            const fft = this.#analyser.fftSize;
-
-            for (let i = 0; i < BAR_COUNT; i++) {
-                const [lo, hi] = FREQ_BANDS[i];
-                const raw      = this.#bandLevel(this.#freqData, sr, fft, lo, hi);
-                const gate     = BAND_GATES[i];
-                const gated    = raw < gate ? 0 : (raw - gate) / (1 - gate);
-                const scaled   = Math.min(1, gated * 1.3);
-                const attackA  = 0.18;
-                const decayA   = i < 3 ? 0.14 : 0.08;
-                const alpha    = scaled > this.#barSmooth[i] ? attackA : decayA;
-                this.#barSmooth[i] = this.#ema(this.#barSmooth[i], scaled, alpha);
-                heights[i] = Math.max(4 * dpr, this.#barSmooth[i] * maxBarH);
-            }
-        } else {
-            // ── Idle breathing mode ───────────────────────────────
-            this.#phase += 0.018;
-            const amp = 0.35 + 0.10 * Math.sin(this.#phase * 0.65);
-            for (let i = 0; i < BAR_COUNT; i++) {
-                const wave = 0.5 + 0.5 * Math.sin(this.#phase + BAR_PHASES[i]);
-                heights[i] = Math.max(6 * dpr, BAR_MULTS[i] * amp * maxBarH * (0.86 + 0.14 * wave));
-            }
-        }
-
-        // Draw bars
-        for (let i = 0; i < BAR_COUNT; i++) {
-            const barH = heights[i];
-            const x    = startX + i * (barW + gap);
-            const y    = baseY - barH;
-            const r    = Math.min(barW / 2, 5 * dpr);
-
-            const grad = ctx.createLinearGradient(x, baseY, x, y);
-            grad.addColorStop(0,    `rgba(${cr},${cg},${cb},0.10)`);
-            grad.addColorStop(0.35, `rgba(${cr},${cg},${cb},0.55)`);
-            grad.addColorStop(1,    `rgba(${cr},${cg},${cb},1.0)`);
-
-            ctx.save();
-            ctx.shadowColor = `rgba(${cr},${cg},${cb},${this.#analyser ? 0.85 : 0.65})`;
-            ctx.shadowBlur  = (this.#analyser ? 14 : 8) * dpr;
-            ctx.fillStyle   = grad;
-            this.#roundedTop(ctx, x, y, barW, barH, r);
-            ctx.fill();
-            ctx.restore();
-        }
-
-        // Baseline
-        ctx.save();
-        ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.20)`;
-        ctx.lineWidth   = Math.round(dpr);
-        ctx.beginPath();
-        ctx.moveTo(startX - gap * 0.5,          baseY + dpr);
-        ctx.lineTo(startX + totalW + gap * 0.5, baseY + dpr);
         ctx.stroke();
         ctx.restore();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Rounded-right rectangle: left corners are square, right corners rounded. */
+    #roundedRight(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x, y + h);
+        ctx.closePath();
+    }
 
     #bandLevel(freqData, sr, fftSize, loHz, hiHz) {
         const binHz = sr / fftSize;
@@ -380,27 +332,16 @@ export class WaveEngine {
         return sum / ((hi - lo + 1) * 255);
     }
 
-    #roundedTop(ctx, x, y, w, h, r) {
-        ctx.beginPath();
-        ctx.moveTo(x, y + h);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h);
-        ctx.closePath();
-    }
-
     #ema(current, target, alpha) {
         return isNaN(current) ? target : current + alpha * (target - current);
     }
 
     /**
      * Pitch → RGB colour:
-     *   0.00 → #8b5cf6 deep violet (bass)
-     *   0.33 → #b6a0ff electric violet (baritone)
-     *   0.66 → #818cf8 indigo (tenor/alto)
-     *   1.00 → #00f1fe cyan (soprano)
+     *   0.00 → #8b5cf6  deep violet (bass)
+     *   0.33 → #b6a0ff  electric violet (baritone)
+     *   0.66 → #818cf8  indigo (tenor/alto)
+     *   1.00 → #00f1fe  cyan (soprano)
      */
     #pitchRGB(norm) {
         const stops = [

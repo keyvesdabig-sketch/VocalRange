@@ -23,24 +23,97 @@ import { WaveEngine  } from '../engines/waveEngine.js';
 
 const HTML = /* html */`
 <div id="mainCard">
-    <div class="app-grid">
+    <div class="studio-layout">
 
-        <!-- ════════════ LEFT — Pitch Meter ════════════ -->
-        <div id="pitchColumn">
-            <div class="brand-mark">
-                <img src="favicon.svg" alt="VocalRange">
+        <!-- ── Compact header ──────────────────────────────── -->
+        <header class="studio-header">
+            <div class="studio-brand">
+                <img src="favicon.svg" alt="VocalRange icon" class="brand-icon">
+                <div class="brand-text">
+                    <h1 class="app-title">VocalRange</h1>
+                    <p class="app-subtitle">Vocal Range Analyzer</p>
+                </div>
             </div>
+            <div id="recordingIndicator" class="rec-badge hidden">
+                <span class="rec-dot"></span>
+                <span class="rec-label">REC</span>
+                <span id="frequencyDisplay">— Hz</span>
+            </div>
+        </header>
+
+        <!-- ── Hero: Wave Canvas ─────────────────────────── -->
+        <div id="avatarWrap">
+            <canvas id="waveCanvas" aria-label="Vocal waveform visualizer"></canvas>
+            <!-- Idle overlay: shown when not recording -->
+            <div id="idleOverlay" class="canvas-idle-overlay">
+                <p id="instructionText" class="canvas-hint">
+                    Start recording and sing your notes — hold each for at least 1 second.
+                </p>
+                <button id="startBtn" class="btn-primary btn-canvas">Start Recording</button>
+            </div>
+        </div>
+
+        <!-- ── Captured range: compact row ───────────────── -->
+        <div class="range-row">
+            <div class="range-item">
+                <span class="dot-low"></span>
+                <span class="range-lbl">Lowest</span>
+                <strong id="minNoteDisplay" class="range-note">–</strong>
+            </div>
+            <div class="range-item range-item--right">
+                <strong id="maxNoteDisplay" class="range-note">–</strong>
+                <span class="range-lbl">Highest</span>
+                <span class="dot-high"></span>
+            </div>
+        </div>
+
+        <!-- ── Analyze button (only during/after recording) ─ -->
+        <button id="stopBtn" class="btn-ghost btn-full hidden" disabled>Analyze Voice</button>
+
+        <!-- ── Error ─────────────────────────────────────── -->
+        <div id="errorBox" class="hidden">
+            <strong>Error:</strong>
+            <span id="errorMessage" style="display:block;margin-top:3px;"></span>
+        </div>
+
+        <!-- ── Results ───────────────────────────────────── -->
+        <div id="resultBox" class="hidden">
+            <p class="result-label">Voice Type</p>
+            <h2 id="voiceTypeDisplay"></h2>
+            <p id="rangeInfo"></p>
+            <span id="badgeDisplay"></span>
+            <div class="score-section">
+                <div class="score-row">
+                    <div>
+                        <p class="score-label">Range Score</p>
+                        <p class="score-num">
+                            <span id="semitoneCount">0</span>
+                            <span class="score-unit">semitones</span>
+                        </p>
+                    </div>
+                    <div class="score-right">
+                        <p class="score-label">Personal Best</p>
+                        <p id="personalBestDisplay">—</p>
+                    </div>
+                </div>
+                <div class="score-pills">
+                    <span id="tierPill" class="tier-pill"></span>
+                    <span id="recordBadge" class="record-badge hidden">🏆 New Record!</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Hidden pitch bar — JS still references these ─ -->
+        <div id="pitchColumn" hidden aria-hidden="true">
             <div class="pitch-bar-wrap">
                 <div id="pitchBar">
                     <div id="overlayBottom" class="pitch-overlay"></div>
                     <div id="overlayTop"    class="pitch-overlay"></div>
-
                     <span class="note-label note-c6">C6</span>
                     <span class="note-label note-c5">C5</span>
                     <span class="note-label note-c4">C4</span>
                     <span class="note-label note-c3">C3</span>
                     <span class="note-label note-c2">C2</span>
-
                     <div id="pitchDot"></div>
                     <div id="minMarker" class="pitch-marker marker-min hidden"></div>
                     <div id="maxMarker" class="pitch-marker marker-max hidden"></div>
@@ -50,97 +123,12 @@ const HTML = /* html */`
             </div>
         </div>
 
-        <!-- ════════════ RIGHT — Controls & Results ════════════ -->
-        <div class="controls-col">
-            <header>
-                <h1 class="app-title">VocalRange</h1>
-                <p class="app-subtitle">Vocal Range Analyzer</p>
-            </header>
+        <!-- ── Hidden level canvas — LevelEngine still uses it ─ -->
+        <div id="levelSection" hidden aria-hidden="true">
+            <canvas id="levelCanvas" aria-label="Signal level meter"></canvas>
+        </div>
 
-            <!-- ── Wave Visualizer — central reactive element ─── -->
-            <div id="avatarWrap">
-                <canvas id="waveCanvas" aria-label="Vocal waveform visualizer"></canvas>
-            </div>
-
-            <div id="recordingIndicator" class="hidden">
-                <span class="rec-dot"></span>
-                <span class="rec-label">REC</span>
-                <span id="frequencyDisplay">— Hz</span>
-            </div>
-
-            <!-- Signal level bar (shown only while recording) -->
-            <div id="levelSection" class="level-section hidden">
-                <p class="section-label">Signal Level</p>
-                <div class="level-track">
-                    <canvas id="levelCanvas" aria-label="Signal level meter"></canvas>
-                </div>
-            </div>
-
-
-
-            <p id="instructionText">
-                Start recording and sing your notes — hold each for at least 1 second.
-            </p>
-
-            <div class="btn-group">
-                <button id="startBtn" class="btn-primary">Start Recording</button>
-                <button id="stopBtn" class="btn-ghost hidden" disabled>Analyze Voice</button>
-            </div>
-
-            <div id="errorBox" class="hidden">
-                <strong>Error:</strong>
-                <span id="errorMessage" style="display:block;margin-top:3px;"></span>
-            </div>
-
-            <div>
-                <p class="section-label">Recorded Range</p>
-                <div class="measure-grid">
-                    <div class="measure-card">
-                        <p class="measure-label label-low">Lowest</p>
-                        <div class="measure-val">
-                            <span class="dot-low"></span>
-                            <span id="minNoteDisplay" class="note-val">–</span>
-                        </div>
-                    </div>
-                    <div class="measure-card">
-                        <p class="measure-label label-high">Highest</p>
-                        <div class="measure-val">
-                            <span class="dot-high"></span>
-                            <span id="maxNoteDisplay" class="note-val">–</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="resultBox" class="hidden">
-                <p class="result-label">Voice Type</p>
-                <h2 id="voiceTypeDisplay"></h2>
-                <p id="rangeInfo"></p>
-                <span id="badgeDisplay"></span>
-
-                <div class="score-section">
-                    <div class="score-row">
-                        <div>
-                            <p class="score-label">Range Score</p>
-                            <p class="score-num">
-                                <span id="semitoneCount">0</span>
-                                <span class="score-unit">semitones</span>
-                            </p>
-                        </div>
-                        <div class="score-right">
-                            <p class="score-label">Personal Best</p>
-                            <p id="personalBestDisplay">—</p>
-                        </div>
-                    </div>
-                    <div class="score-pills">
-                        <span id="tierPill" class="tier-pill"></span>
-                        <span id="recordBadge" class="record-badge hidden">🏆 New Record!</span>
-                    </div>
-                </div>
-            </div>
-
-        </div><!-- /controls-col -->
-    </div><!-- /app-grid -->
+    </div><!-- /studio-layout -->
 </div><!-- /mainCard -->
 `;
 
@@ -196,6 +184,7 @@ export function render(container) {
     const overlayBottom       = $('overlayBottom');
     const overlayTop          = $('overlayTop');
     const levelSection        = $('levelSection');
+    const idleOverlay         = $('idleOverlay');
 
     // ── Engine instantiation ──────────────────────────────────────
     const levelEngine  = new LevelEngine($('levelCanvas'));
@@ -464,11 +453,10 @@ export function render(container) {
             displayFreq     = null;
             lastDisplayedHz = -1;
 
-            // Show level bar and initialise engines
-            levelSection.classList.remove('hidden');
+            // Initialise engines
             levelEngine.reset();
 
-            startBtn.classList.add('hidden');
+            idleOverlay.classList.add('hidden');   // hide canvas overlay
             stopBtn.classList.remove('hidden');
             stopBtn.disabled = false;
             recordingIndicator.classList.remove('hidden');
@@ -493,11 +481,10 @@ export function render(container) {
         stopRecording();
         hideDot();
         pitchDot.classList.remove('silent');
-        startBtn.classList.remove('hidden');
+        idleOverlay.classList.remove('hidden');  // show canvas overlay again
         startBtn.textContent = 'Record Again';
         stopBtn.classList.add('hidden');
         recordingIndicator.classList.add('hidden');
-        levelSection.classList.add('hidden');
         instructionText.textContent = 'Start recording and sing your notes — hold each for at least 1 second.';
         evaluateVoiceType();
     });

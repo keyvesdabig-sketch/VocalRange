@@ -32,6 +32,14 @@ const GRAD = {
     soprano:  ['#7affff', '#003858'],
 };
 
+// Dress linear gradient: [top, bottom] — slightly darker than face outer
+const DRESS_GRAD = {
+    bass:     ['#280060', '#0a0020'],
+    baritone: ['#3a0888', '#150034'],
+    tenor:    ['#181888', '#060630'],
+    soprano:  ['#004870', '#001530'],
+};
+
 // Ring + glow stroke colour per register
 const RING_COLOR = {
     bass:     '#8b5cf6',
@@ -56,6 +64,8 @@ export class AvatarEngine {
     #mouth;     // <ellipse id="avMouth">
     #gradIn;    // <stop id="avGradIn">
     #gradOut;   // <stop id="avGradOut">
+    #dressTop;  // <stop id="avDressTop">
+    #dressBot;  // <stop id="avDressBot">
     #browL;     // <path id="avBrowL">
     #browR;     // <path id="avBrowR">
     #ring1;     // <ellipse id="avRing1">
@@ -75,6 +85,8 @@ export class AvatarEngine {
         this.#mouth     = svgEl.querySelector('#avMouth');
         this.#gradIn    = svgEl.querySelector('#avGradIn');
         this.#gradOut   = svgEl.querySelector('#avGradOut');
+        this.#dressTop  = svgEl.querySelector('#avDressTop');
+        this.#dressBot  = svgEl.querySelector('#avDressBot');
         this.#browL     = svgEl.querySelector('#avBrowL');
         this.#browR     = svgEl.querySelector('#avBrowR');
         this.#ring1     = svgEl.querySelector('#avRing1');
@@ -110,8 +122,9 @@ export class AvatarEngine {
         const ringCol  = RING_COLOR[reg];
 
         // ── Y position: pitch → bottom % within #avatarWrap ──────────
-        // Range 4 %–44 % keeps the full SVG visible inside the 200px wrap
-        const yBottom = 4 + norm * 40;
+        // SVG is 185u tall rendered at ~167px. Wrap is 280px.
+        // Range 2%–38% keeps full avatar visible with good travel.
+        const yBottom = 2 + norm * 36;
         this.#posEl.style.bottom = yBottom.toFixed(1) + '%';
 
         // ── Mouth opening: RMS → oval height (ry attr) ────────────────
@@ -122,6 +135,11 @@ export class AvatarEngine {
         const [inner, outer] = GRAD[reg];
         this.#gradIn.setAttribute('stop-color', inner);
         this.#gradOut.setAttribute('stop-color', outer);
+
+        // ── Dress gradient (matches/extends face outer colour) ────────
+        const [dressTop, dressBot] = DRESS_GRAD[reg];
+        this.#dressTop.setAttribute('stop-color', dressTop);
+        this.#dressBot.setAttribute('stop-color', dressBot);
 
         // ── Outer glow: RMS → filter blur radius ─────────────────────
         const glowBlur = (10 + Math.min(0.18, rms) * 100).toFixed(1);
@@ -168,8 +186,10 @@ export class AvatarEngine {
         this.#posEl.classList.add('av-idle');
         this.#posEl.style.bottom = '';                         // CSS default (24%)
         this.#mouth.setAttribute('ry', '4');
-        this.#gradIn.setAttribute('stop-color',  GRAD.baritone[0]);
-        this.#gradOut.setAttribute('stop-color', GRAD.baritone[1]);
+        this.#gradIn.setAttribute('stop-color',   GRAD.baritone[0]);
+        this.#gradOut.setAttribute('stop-color',  GRAD.baritone[1]);
+        this.#dressTop.setAttribute('stop-color', DRESS_GRAD.baritone[0]);
+        this.#dressBot.setAttribute('stop-color', DRESS_GRAD.baritone[1]);
         this.#browL.setAttribute('transform', '');
         this.#browR.setAttribute('transform', '');
         this.#cheekL.setAttribute('fill-opacity', '0.08');
