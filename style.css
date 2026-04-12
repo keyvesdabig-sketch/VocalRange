@@ -821,6 +821,13 @@ body {
     flex-shrink: 0;
 }
 
+/* Wave canvas — fills the entire wrap */
+#waveCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
 /* Positioning wrapper — moves up & down on the Y axis via JS (bottom %) */
 #avatarPosEl {
     position: absolute;
@@ -842,8 +849,8 @@ body {
 
 /* SVG element — GPU-composited via will-change */
 #voiceAvatar {
-    width: 100px;
-    height: 110px;
+    width: 90px;
+    height: auto;               /* aspect ratio: 100:185 → ~167px rendered */
     display: block;
     overflow: visible;          /* allow glow to bleed outside bounds */
     will-change: transform, filter;
@@ -930,6 +937,6 @@ body {
     .app-title { font-size: 24px; }
     #voiceTypeDisplay { font-size: 28px; }
     #semitoneCount { font-size: 32px; }
-    #avatarWrap { height: 160px; }
+    #avatarWrap { height: 180px; }
 }
 
