@@ -17,6 +17,7 @@ import {
 
 import { LevelEngine     } from '../engines/levelEngine.js';
 import { PitchTrailEngine } from '../engines/pitchTrailEngine.js';
+import { AvatarEngine     } from '../engines/avatarEngine.js';
 
 
 // ── HTML template ─────────────────────────────────────────────
@@ -57,13 +58,60 @@ const HTML = /* html */`
                 <p class="app-subtitle">Vocal Range Analyzer</p>
             </header>
 
-            <!-- Pitch trail canvas — builds up during recording, persists after -->
-            <div class="trail-header">
-                <span class="section-label" style="margin-bottom:0">Pitch History</span>
-                <span class="trail-hint">sing to see your trail</span>
-            </div>
-            <div class="trail-wrap">
-                <canvas id="pitchTrailCanvas" aria-label="Pitch history trail"></canvas>
+            <!-- ── Avatar — central reactive vocal blob ──────────── -->
+            <div id="avatarWrap">
+                <div id="avatarPosEl" class="av-idle">
+                    <svg id="voiceAvatar" viewBox="0 0 100 110"
+                         xmlns="http://www.w3.org/2000/svg"
+                         aria-hidden="true" focusable="false">
+                        <defs>
+                            <radialGradient id="avGrad" cx="38%" cy="32%" r="68%" fx="35%" fy="28%">
+                                <stop id="avGradIn"  offset="0%"   stop-color="#d4c0ff"/>
+                                <stop id="avGradOut" offset="100%" stop-color="#2e0880"/>
+                            </radialGradient>
+                        </defs>
+
+                        <!-- Sound rings — expand + fade when singing loudly -->
+                        <ellipse id="avRing1" class="av-ring"         cx="50" cy="55" rx="44" ry="47"/>
+                        <ellipse id="avRing2" class="av-ring av-ring-d2" cx="50" cy="55" rx="44" ry="47"/>
+
+                        <!-- Blob body — organic cubic-bezier path, fill via radial gradient -->
+                        <path id="avBody"
+                              d="M50 12 C72 9 93 28 94 54 C95 80 75 98 50 98 C25 98 5 80 6 54 C7 28 28 15 50 12Z"
+                              fill="url(#avGrad)"/>
+
+                        <!-- Specular highlight (top-left, static) -->
+                        <ellipse cx="34" cy="30" rx="12" ry="8"
+                                 fill="rgba(255,255,255,0.14)"
+                                 transform="rotate(-25,34,30)"/>
+
+                        <!-- Cheek blushes — fill-opacity driven by RMS -->
+                        <ellipse id="avCheekL" class="av-cheek" cx="20" cy="66" rx="11" ry="8" fill-opacity="0.08"/>
+                        <ellipse id="avCheekR" class="av-cheek" cx="80" cy="66" rx="11" ry="8" fill-opacity="0.08"/>
+
+                        <!-- Eyebrows — translateY driven by pitch (raised = high, furrowed = low) -->
+                        <path id="avBrowL" d="M 26,37 Q 33,31 40,35"
+                              stroke="rgba(255,255,255,0.60)" stroke-width="2.8"
+                              stroke-linecap="round" fill="none"/>
+                        <path id="avBrowR" d="M 60,35 Q 67,31 74,37"
+                              stroke="rgba(255,255,255,0.60)" stroke-width="2.8"
+                              stroke-linecap="round" fill="none"/>
+
+                        <!-- Eyes — white sclera with blink animation -->
+                        <ellipse class="av-eye" id="avEyeL" cx="35" cy="48" rx="7.5" ry="7.5"/>
+                        <ellipse class="av-eye" id="avEyeR" cx="65" cy="48" rx="7.5" ry="7.5"/>
+                        <!-- Pupils -->
+                        <ellipse class="av-pupil" cx="36" cy="49" rx="4"   ry="4"/>
+                        <ellipse class="av-pupil" cx="66" cy="49" rx="4"   ry="4"/>
+                        <!-- Eye shine dots -->
+                        <ellipse cx="38" cy="46" rx="1.8" ry="1.8" fill="rgba(255,255,255,0.88)"/>
+                        <ellipse cx="68" cy="46" rx="1.8" ry="1.8" fill="rgba(255,255,255,0.88)"/>
+
+                        <!-- Mouth oval — ry driven by RMS each frame -->
+                        <ellipse id="avMouth" cx="50" cy="74" rx="13" ry="4"/>
+                    </svg>
+
+                </div>
             </div>
 
             <div id="recordingIndicator" class="hidden">
@@ -78,6 +126,15 @@ const HTML = /* html */`
                 <div class="level-track">
                     <canvas id="levelCanvas" aria-label="Signal level meter"></canvas>
                 </div>
+            </div>
+
+            <!-- Pitch trail canvas — compact secondary widget -->
+            <div class="trail-header">
+                <span class="section-label" style="margin-bottom:0">Pitch History</span>
+                <span class="trail-hint">sing to see your trail</span>
+            </div>
+            <div class="trail-wrap trail-wrap--compact">
+                <canvas id="pitchTrailCanvas" aria-label="Pitch history trail"></canvas>
             </div>
 
             <p id="instructionText">
@@ -204,6 +261,9 @@ export function render(container) {
     const trailEngine  = new PitchTrailEngine($('pitchTrailCanvas'), {
         pitchMin: PITCH_MIN, pitchMax: PITCH_MAX,
     });
+    const avatarEngine = new AvatarEngine($('voiceAvatar'), $('avatarPosEl'), {
+        pitchMin: PITCH_MIN, pitchMax: PITCH_MAX,
+    });
 
     // ── State ─────────────────────────────────────────────────
     let audioContext, analyser, microphone, lowShelf, highShelf;
@@ -295,7 +355,8 @@ export function render(container) {
 
         if (rms < RMS_THRESHOLD) {
             stableCount = 0;
-            trailEngine.frame(NaN); // silence gap in trail
+            trailEngine.frame(NaN);      // silence gap in trail
+            avatarEngine.frame(NaN, rms); // avatar → idle pose
             animationFrameId = requestAnimationFrame(updatePitch);
             return;
         }
@@ -353,7 +414,8 @@ export function render(container) {
             stableCount = 0;
         }
 
-        trailEngine.frame(trailMidi); // feed trail (NaN if no clean pitch this frame)
+        trailEngine.frame(trailMidi);                  // feed trail
+        avatarEngine.frame(displayMidi ?? NaN, rms);   // feed avatar
         animationFrameId = requestAnimationFrame(updatePitch);
     }
 
@@ -413,6 +475,7 @@ export function render(container) {
         if (microphone) { try { microphone.disconnect(); } catch { /* noop */ } }
         if (audioContext && audioContext.state !== 'closed') audioContext.close();
         cancelAnimationFrame(animationFrameId);
+        avatarEngine.reset(); // return blob to idle pose
     }
 
     // ── Button handlers ───────────────────────────────────────

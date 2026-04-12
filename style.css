@@ -803,6 +803,109 @@ body {
 /* ── Utility ─────────────────────────────────────────────────── */
 .hidden { display: none !important; }
 
+/* ═══════════════════════════════════════════════════════════
+   AVATAR — Vocal Blob
+   ═══════════════════════════════════════════════════════════ */
+
+/* Outer container — fixed height, clipping travel zone */
+#avatarWrap {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    border-radius: var(--radius-xs);
+    background: rgba(0, 0, 0, 0.18);
+    box-shadow:
+        inset 0 0 0 1px rgba(182,160,255,0.07),
+        inset 0 0 32px rgba(182,160,255,0.03);
+    flex-shrink: 0;
+}
+
+/* Positioning wrapper — moves up & down on the Y axis via JS (bottom %) */
+#avatarPosEl {
+    position: absolute;
+    left: 50%;
+    bottom: 24%;                /* default idle rest position */
+    transform: translateX(-50%);
+    width: 100px;
+    transition: bottom 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Idle float: gentle vertical drift while not recording */
+@keyframes av-float {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%       { transform: translateX(-50%) translateY(-10px); }
+}
+#avatarPosEl.av-idle {
+    animation: av-float 3.4s ease-in-out infinite;
+}
+
+/* SVG element — GPU-composited via will-change */
+#voiceAvatar {
+    width: 100px;
+    height: 110px;
+    display: block;
+    overflow: visible;          /* allow glow to bleed outside bounds */
+    will-change: transform, filter;
+    transition: filter 0.18s ease-out;
+    transform-box: view-box;
+    transform-origin: center;
+    /* Default idle glow */
+    filter: drop-shadow(0 0 10px rgba(182,160,255,0.45));
+}
+
+/* Blob body — gradient fill managed by JS (stop-color attributes) */
+#avBody {
+    fill: url(#avGrad);
+}
+
+/* Eyes — white sclera with blink animation */
+.av-eye {
+    fill: rgba(255, 255, 255, 0.92);
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+@keyframes av-blink {
+    0%, 88%, 100% { transform: scaleY(1); }
+    93%           { transform: scaleY(0.06); }
+}
+#avEyeL { animation: av-blink 3.8s ease-in-out 0.0s infinite; }
+#avEyeR { animation: av-blink 3.8s ease-in-out 0.07s infinite; }
+
+/* Pupils — match deep background */
+.av-pupil { fill: var(--bg); }
+
+/* Mouth oval — ry set by JS each frame (no CSS transition, sub-50ms) */
+#avMouth { fill: rgba(22, 6, 37, 0.82); }
+
+/* Cheek blushes — pinkish, fill-opacity controlled by JS */
+.av-cheek { fill: rgb(255, 120, 160); }
+
+/* Sound rings — expand + fade when singing loudly */
+@keyframes av-ring-pulse {
+    0%   { transform: scale(0.95); opacity: 0.7; }
+    100% { transform: scale(1.7);  opacity: 0;   }
+}
+.av-ring {
+    fill: none;
+    stroke: var(--primary); /* overridden by JS setAttribute per register */
+    stroke-width: 1.8;
+    transform-box: fill-box;
+    transform-origin: center;
+    opacity: 0;
+    pointer-events: none;
+}
+.av-ring--on {
+    animation: av-ring-pulse 0.9s ease-out infinite;
+}
+.av-ring-d2.av-ring--on {
+    animation-delay: -0.45s; /* negative = start mid-cycle → instant stagger */
+}
+
+/* Compact pitch trail override (secondary widget) */
+.trail-wrap--compact { height: 90px; }
+
 /* ── Responsive — mobile ─────────────────────────────────── */
 @media (max-width: 620px) {
     #app { padding: 12px 12px; align-items: flex-start; }
@@ -827,4 +930,6 @@ body {
     .app-title { font-size: 24px; }
     #voiceTypeDisplay { font-size: 28px; }
     #semitoneCount { font-size: 32px; }
+    #avatarWrap { height: 160px; }
 }
+
