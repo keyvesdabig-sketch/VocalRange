@@ -1,17 +1,17 @@
 {
-  "name": "VoiceCrack - Chor Stimmanalyse",
+  "name": "VoiceCrack – Vocal Range Analyzer",
   "short_name": "VoiceCrack",
+  "description": "Analyze your vocal range in seconds. Sing your lowest and highest notes — VoiceCrack identifies your voice type instantly.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
-  "description": "Finde deine Stimmanalyse für den Chor in Sekunden.",
+  "background_color": "#07080d",
+  "theme_color": "#00e5ff",
   "icons": [
     {
-      "src": "Logo.jpg",
-      "sizes": "512x512",
-      "type": "image/jpeg",
-      "purpose": "any maskable"
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }
