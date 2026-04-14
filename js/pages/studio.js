@@ -34,35 +34,38 @@ const HTML = /* html */`
                     <p class="app-subtitle">Vocal Range Analyzer</p>
                 </div>
             </div>
-            <div id="recordingIndicator" class="rec-badge hidden">
-                <span class="rec-dot"></span>
-                <span class="rec-label">REC</span>
-                <span id="frequencyDisplay">— Hz</span>
-            </div>
         </header>
 
         <!-- ── Hero: Wave Canvas ─────────────────────────── -->
         <div id="avatarWrap">
             <canvas id="waveCanvas" aria-label="Vocal waveform visualizer"></canvas>
-            <!-- Idle overlay: shown when not recording -->
+            <span id="frequencyDisplay" aria-live="polite">— Hz</span>
+            <!-- Idle overlay: only the button — always visible below -->
             <div id="idleOverlay" class="canvas-idle-overlay">
-                <p id="instructionText" class="canvas-hint">
-                    Start recording and sing your notes — hold each for at least 1 second.
-                </p>
                 <button id="startBtn" class="btn-primary btn-canvas">Start Recording</button>
             </div>
         </div>
+
+        <!-- Status text — outside overlay so JS updates stay visible during recording -->
+        <p id="instructionText" class="canvas-hint">
+            Start recording and sing your notes — hold each for at least 1 second.
+        </p>
 
         <!-- ── Captured range: compact row ───────────────── -->
         <div class="range-row">
             <div class="range-item">
                 <span class="dot-low"></span>
-                <span class="range-lbl">Lowest</span>
-                <strong id="minNoteDisplay" class="range-note">–</strong>
+                <div class="range-stack">
+                    <span class="range-lbl">Lowest</span>
+                    <strong id="minNoteDisplay" class="range-note">–</strong>
+                </div>
             </div>
+            <span id="rangeInterval" class="range-interval"></span>
             <div class="range-item range-item--right">
-                <strong id="maxNoteDisplay" class="range-note">–</strong>
-                <span class="range-lbl">Highest</span>
+                <div class="range-stack range-stack--right">
+                    <span class="range-lbl">Highest</span>
+                    <strong id="maxNoteDisplay" class="range-note">–</strong>
+                </div>
                 <span class="dot-high"></span>
             </div>
         </div>
@@ -104,7 +107,7 @@ const HTML = /* html */`
         </div>
 
         <!-- ── Hidden pitch bar — JS still references these ─ -->
-        <div id="pitchColumn" hidden aria-hidden="true">
+        <div id="pitchColumn" hidden aria-hidden="true" class="hidden">
             <div class="pitch-bar-wrap">
                 <div id="pitchBar">
                     <div id="overlayBottom" class="pitch-overlay"></div>
@@ -176,7 +179,7 @@ export function render(container) {
     const tierPill            = $('tierPill');
     const recordBadge         = $('recordBadge');
     const instructionText     = $('instructionText');
-    const recordingIndicator  = $('recordingIndicator');
+    const rangeInterval       = $('rangeInterval');
     const pitchBar            = $('pitchBar');
     const pitchDot            = $('pitchDot');
     const minMarker           = $('minMarker');
@@ -275,9 +278,6 @@ export function render(container) {
         for (let i = 0; i < yinBuffer.length; i++) rmsSum += yinBuffer[i] ** 2;
         const rms = Math.sqrt(rmsSum / yinBuffer.length);
 
-        // Feed level engine every frame (regardless of RMS gate)
-        levelEngine.frame(rms);
-
         pitchDot.classList.toggle('silent', rms < RMS_THRESHOLD);
 
         if (rms < RMS_THRESHOLD) {
@@ -327,15 +327,30 @@ export function render(container) {
                 minPitch = stableNote;
                 minNoteDisplay.textContent = noteNameFromPitch(stableNote);
                 setMarker(minMarker, overlayBottom, stableNote, false);
-                if (maxPitch === -Infinity)
-                    instructionText.textContent = 'Lowest note captured! Now sing your highest note and hold it.';
+                stopBtn.disabled = false;
+                // Lock-in animation
+                minNoteDisplay.classList.remove('locked');
+                void minNoteDisplay.offsetWidth;
+                minNoteDisplay.classList.add('locked');
+                if (maxPitch === -Infinity) {
+                    instructionText.textContent = 'Lowest note captured — now sing your highest.';
+                    instructionText.className = 'canvas-hint hint--low';
+                }
             }
             if (stableCount >= req && stableNote > maxPitch) {
                 maxPitch = stableNote;
                 maxNoteDisplay.textContent = noteNameFromPitch(stableNote);
                 setMarker(maxMarker, overlayTop, stableNote, true);
-                if (minPitch !== Infinity)
-                    instructionText.textContent = 'Both notes captured! Press "Analyze Voice" whenever you\'re done.';
+                // Lock-in animation
+                maxNoteDisplay.classList.remove('locked');
+                void maxNoteDisplay.offsetWidth;
+                maxNoteDisplay.classList.add('locked');
+                if (minPitch !== Infinity) {
+                    const st = Math.round(maxPitch - minPitch);
+                    rangeInterval.textContent = st + ' ST';
+                    instructionText.textContent = 'Range locked — press Analyze whenever you\'re ready.';
+                    instructionText.className = 'canvas-hint hint--complete';
+                }
             }
         } else {
             stableCount = 0;
@@ -370,8 +385,7 @@ export function render(container) {
         tierPill.style.border     = `1px solid ${color}55`;
 
         // Personal best
-        let prevBest = inMemoryBest;
-        try { prevBest = parseInt(localStorage.getItem(BEST_KEY) || '0'); } catch { /* noop */ }
+        const prevBest = inMemoryBest;
         const isNewRecord = semitones > prevBest;
         if (isNewRecord) {
             inMemoryBest = semitones;
@@ -397,6 +411,7 @@ export function render(container) {
     // ── Stop recording (also used as cleanup) ─────────────────
     function stopRecording() {
         isRecording = false;
+        frequencyDisplay.classList.remove('active');
         if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
         if (microphone) { try { microphone.disconnect(); } catch { /* noop */ } }
         if (audioContext && audioContext.state !== 'closed') audioContext.close();
@@ -412,8 +427,13 @@ export function render(container) {
         maxPitch = -Infinity;
         minNoteDisplay.textContent   = '–';
         maxNoteDisplay.textContent   = '–';
+        minNoteDisplay.classList.remove('locked');
+        maxNoteDisplay.classList.remove('locked');
+        rangeInterval.textContent    = '';
         frequencyDisplay.textContent = '— Hz';
         instructionText.textContent  = 'Sing your lowest note and hold it for at least 1 second.';
+        instructionText.className    = 'canvas-hint';
+        stopBtn.disabled = true;
         resetMeter();
 
         try {
@@ -447,6 +467,7 @@ export function render(container) {
 
             pitchBarHeight = pitchBar.offsetHeight;
             isRecording    = true;
+            frequencyDisplay.classList.add('active');
             medianFilter.reset();
             stableNote      = null;
             stableCount     = 0;
@@ -458,8 +479,6 @@ export function render(container) {
 
             idleOverlay.classList.add('hidden');   // hide canvas overlay
             stopBtn.classList.remove('hidden');
-            stopBtn.disabled = false;
-            recordingIndicator.classList.remove('hidden');
 
             updatePitch();
 
@@ -484,8 +503,8 @@ export function render(container) {
         idleOverlay.classList.remove('hidden');  // show canvas overlay again
         startBtn.textContent = 'Record Again';
         stopBtn.classList.add('hidden');
-        recordingIndicator.classList.add('hidden');
         instructionText.textContent = 'Start recording and sing your notes — hold each for at least 1 second.';
+        instructionText.className   = 'canvas-hint';
         evaluateVoiceType();
     });
 

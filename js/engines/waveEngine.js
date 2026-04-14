@@ -37,6 +37,7 @@ const RMS_GATE       = 0.015;
 const PITCH_MIN_D    = 36;            // MIDI C2
 const PITCH_MAX_D    = 84;            // MIDI C6
 const TRAIL_DURATION = 14_000;        // ms of trail history visible
+const PITCH_BAR_W   = 28;            // logical px — mini reference bar on the right edge
 
 // Layout (fraction of canvas width)
 const EQ_W_RATIO    = 0.18;           // EQ zone width
@@ -83,6 +84,11 @@ export class WaveEngine {
     #analyser  = null;
     #freqData  = null;
     #barSmooth = new Array(BAR_COUNT).fill(0);
+
+    // EQ gradient cache — rebuilt only when pitch colour or canvas width changes
+    #eqGradient = null;
+    #eqGradRGB  = [-1, -1, -1];
+    #eqZoneW    = 0;
 
     // Pitch trail
     #trail     = [];           // [{midi, t}] — NaN midi = silence gap
@@ -131,7 +137,7 @@ export class WaveEngine {
      */
     frame(smoothedMidi, rms, trailMidi = NaN) {
         const silent = !isFinite(smoothedMidi) || rms < RMS_GATE;
-        if (!silent && isFinite(smoothedMidi)) {
+        if (!silent) {
             this.#midi = isFinite(this.#midi)
                 ? this.#ema(this.#midi, smoothedMidi, 0.08)
                 : smoothedMidi;
@@ -141,7 +147,9 @@ export class WaveEngine {
             const now = performance.now();
             this.#trail.push({ midi: isFinite(trailMidi) ? trailMidi : NaN, t: now });
             const cutoff = now - TRAIL_DURATION;
-            while (this.#trail.length && this.#trail[0].t < cutoff) this.#trail.shift();
+            let lo = 0, hi = this.#trail.length;
+            while (lo < hi) { const mid = (lo + hi) >> 1; if (this.#trail[mid].t < cutoff) lo = mid + 1; else hi = mid; }
+            if (lo > 0) this.#trail.splice(0, lo);
         }
     }
 
@@ -188,39 +196,39 @@ export class WaveEngine {
         // ── Geometry ──────────────────────────────────────────────
         const padV    = Math.round(h * 0.08);
         const innerH  = h - 2 * padV;
-        const eqZoneW = Math.round(w * EQ_W_RATIO);
-        const trailX  = Math.round(w * TRAIL_X_RATIO);
-        const trailW  = w - trailX;
+        const eqZoneW   = Math.round(w * EQ_W_RATIO);
+        const trailX    = Math.round(w * TRAIL_X_RATIO);
+        const pitchBarW = Math.round(PITCH_BAR_W * dpr);
+        const trailW    = w - trailX - pitchBarW;
 
-        // 1. Full-width grid (behind both zones)
-        this.#drawGrid(ctx, w, h, padV, innerH, dpr, cr, cg, cb);
+        // 1. Grid (EQ + trail zones only — pitch bar handles its own labels)
+        this.#drawGrid(ctx, w - pitchBarW, h, padV, innerH, dpr, cr, cg, cb);
 
         // 2. EQ horizontal bars (left zone)
         this.#drawEQH(ctx, eqZoneW, h, padV, innerH, dpr, cr, cg, cb);
 
-        // 3. Pitch trail (right zone)
+        // 3. Pitch trail (right zone, ends at pitch bar)
         this.#drawTrail(ctx, trailX, trailW, h, padV, innerH, dpr, cr, cg, cb);
+
+        // 4. Pitch reference bar (far right)
+        this.#drawPitchBar(ctx, w - pitchBarW, pitchBarW, h, padV, innerH, dpr, cr, cg, cb);
     }
 
     // ── Grid ──────────────────────────────────────────────────────────────────
 
-    #drawGrid(ctx, w, h, padV, innerH, dpr, cr, cg, cb) {
+    #drawGrid(ctx, endX, h, padV, innerH, dpr, cr, cg, cb) {
         ctx.save();
         ctx.setLineDash([2 * dpr, 6 * dpr]);
         ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.10)`;
         ctx.lineWidth   = Math.round(dpr);
-        ctx.font        = `${Math.round(9 * dpr)}px system-ui, sans-serif`;
-        ctx.textAlign   = 'right';
-        ctx.fillStyle   = `rgba(${cr},${cg},${cb},0.28)`;
 
-        for (const { midi, label } of C_OCTAVES) {
+        for (const { midi } of C_OCTAVES) {
             const yn = (midi - this.#pitchMin) / this.#pitchRange;
             const y  = padV + innerH - Math.round(yn * innerH);
             ctx.beginPath();
             ctx.moveTo(0, y);
-            ctx.lineTo(w, y);
+            ctx.lineTo(endX, y);
             ctx.stroke();
-            ctx.fillText(label, w - 4 * dpr, y - 3 * dpr);
         }
 
         ctx.setLineDash([]);
@@ -240,6 +248,17 @@ export class WaveEngine {
         const segH  = innerH / BAR_COUNT;
         const barH  = Math.max(2 * dpr, segH * 0.38);   // 38% fill, rest is gap
 
+        // Rebuild gradient only when pitch colour or zone width changes (~a few times/sec)
+        if (cr !== this.#eqGradRGB[0] || cg !== this.#eqGradRGB[1] || cb !== this.#eqGradRGB[2] || zoneW !== this.#eqZoneW) {
+            const g = ctx.createLinearGradient(0, 0, zoneW * 0.90, 0);
+            g.addColorStop(0,   `rgba(${cr},${cg},${cb},0.55)`);
+            g.addColorStop(0.7, `rgba(${cr},${cg},${cb},0.25)`);
+            g.addColorStop(1,   `rgba(${cr},${cg},${cb},0.04)`);
+            this.#eqGradient = g;
+            this.#eqGradRGB  = [cr, cg, cb];
+            this.#eqZoneW    = zoneW;
+        }
+
         for (let i = 0; i < BAR_COUNT; i++) {
             // i = 0 → band 1 (bass) at bottom; i = 6 → band 7 (treble) at top
             const [lo, hi] = FREQ_BANDS[i];
@@ -258,14 +277,8 @@ export class WaveEngine {
             const y      = Math.round(yCenter - barH / 2);
             const r      = Math.min(barH / 2, 3 * dpr);
 
-            // Gradient: solid left → fade to transparent right
-            const grad = ctx.createLinearGradient(0, 0, barW, 0);
-            grad.addColorStop(0,   `rgba(${cr},${cg},${cb},0.55)`);
-            grad.addColorStop(0.7, `rgba(${cr},${cg},${cb},0.25)`);
-            grad.addColorStop(1,   `rgba(${cr},${cg},${cb},0.04)`);
-
             ctx.save();
-            ctx.fillStyle = grad;
+            ctx.fillStyle = this.#eqGradient;
             this.#roundedRight(ctx, 0, y, barW, barH, r);
             ctx.fill();
             ctx.restore();
@@ -276,35 +289,137 @@ export class WaveEngine {
 
     #drawTrail(ctx, startX, trailW, h, padV, innerH, dpr, cr, cg, cb) {
         const now = performance.now();
-
         if (this.#trail.length < 2) return;
 
+        // ── Build point list (null = silence gap) ─────────────────
+        const pts = [];
+        for (const pt of this.#trail) {
+            const xf = (pt.t - (now - TRAIL_DURATION)) / TRAIL_DURATION;
+            if (xf < 0 || xf > 1) continue;
+            if (!isFinite(pt.midi)) { pts.push(null); continue; }
+            const yn = Math.max(0, Math.min(1, (pt.midi - this.#pitchMin) / this.#pitchRange));
+            pts.push({ x: startX + xf * trailW, y: padV + innerH - yn * innerH });
+        }
+
+        if (pts.filter(Boolean).length < 2) return;
 
         ctx.save();
         ctx.lineWidth   = 2.5 * dpr;
         ctx.lineJoin    = 'round';
         ctx.lineCap     = 'round';
-        ctx.shadowColor = `rgba(${cr},${cg},${cb},0.70)`;
+        ctx.strokeStyle = `rgb(${cr},${cg},${cb})`;
+        ctx.shadowColor = `rgba(${cr},${cg},${cb},0.65)`;
         ctx.shadowBlur  = 7 * dpr;
-        ctx.strokeStyle = `rgba(${cr},${cg},${cb},1.0)`;
 
-        ctx.beginPath();
-        let pen = false;
+        // ── A: Temporal fade — 10 alpha batches oldest→newest ─────
+        const BATCHES = 10;
+        const chunk   = Math.ceil(pts.length / BATCHES);
 
-        for (const pt of this.#trail) {
-            const xf = (pt.t - (now - TRAIL_DURATION)) / TRAIL_DURATION;
-            const x  = Math.round(startX + xf * trailW);
+        // C: Bezier smoothing — midpoint quadratic within each run
+        const strokeRun = (run, alpha) => {
+            if (run.length < 2) return;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.moveTo(run[0].x, run[0].y);
+            for (let j = 1; j < run.length - 1; j++) {
+                ctx.quadraticCurveTo(
+                    run[j].x, run[j].y,
+                    (run[j].x + run[j + 1].x) / 2,
+                    (run[j].y + run[j + 1].y) / 2,
+                );
+            }
+            ctx.lineTo(run[run.length - 1].x, run[run.length - 1].y);
+            ctx.stroke();
+        };
 
-            if (!isFinite(pt.midi)) { pen = false; continue; }
-
-            const yn = (pt.midi - this.#pitchMin) / this.#pitchRange;
-            const y  = Math.round(padV + innerH - Math.max(0, Math.min(1, yn)) * innerH);
-
-            if (!pen) { ctx.moveTo(x, y); pen = true; }
-            else       { ctx.lineTo(x, y); }
+        for (let b = 0; b < BATCHES; b++) {
+            const alpha = ((b + 1) / BATCHES) ** 0.6;
+            // 1-point overlap between batches for seamless continuity
+            const slice = pts.slice(Math.max(0, b * chunk - 1), (b + 1) * chunk + 1);
+            let run = [];
+            for (const pt of slice) {
+                if (pt === null) { strokeRun(run, alpha); run = []; }
+                else run.push(pt);
+            }
+            strokeRun(run, alpha);
         }
 
+        ctx.globalAlpha = 1;
+
+        // ── D: Glowing endpoint dot at the newest valid point ──────
+        const lastPt = [...pts].reverse().find(Boolean);
+        if (lastPt && !this.#isIdle) {
+            ctx.shadowColor = `rgba(${cr},${cg},${cb},0.95)`;
+            ctx.shadowBlur  = 14 * dpr;
+            ctx.fillStyle   = `rgb(${cr},${cg},${cb})`;
+            ctx.beginPath();
+            ctx.arc(lastPt.x, lastPt.y, 3.5 * dpr, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    // ── Pitch Reference Bar ───────────────────────────────────────────────────
+
+    #drawPitchBar(ctx, startX, barW, h, padV, innerH, dpr, cr, cg, cb) {
+        ctx.save();
+
+        // Dark background
+        ctx.fillStyle = 'rgba(8,6,24,0.60)';
+        ctx.fillRect(startX, 0, barW, h);
+
+        // Left separator line
+        ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.18)`;
+        ctx.lineWidth   = Math.round(dpr);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(startX, padV);
+        ctx.lineTo(startX, padV + innerH);
         ctx.stroke();
+
+        // Vertical gradient representing the full pitch range
+        const grad = ctx.createLinearGradient(0, padV + innerH, 0, padV);
+        grad.addColorStop(0.00, 'rgba(139, 92,246,0.32)');
+        grad.addColorStop(0.33, 'rgba(182,160,255,0.28)');
+        grad.addColorStop(0.66, 'rgba(129,140,248,0.24)');
+        grad.addColorStop(1.00, 'rgba(  0,241,254,0.30)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(startX + Math.round(dpr), padV, barW - Math.round(dpr), innerH);
+
+        // C-octave ticks + labels
+        ctx.font      = `${Math.round(8 * dpr)}px system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+
+        for (const { midi, label } of C_OCTAVES) {
+            const yn = (midi - this.#pitchMin) / this.#pitchRange;
+            const y  = Math.round(padV + innerH - yn * innerH);
+
+            ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.30)`;
+            ctx.lineWidth   = Math.round(dpr);
+            ctx.beginPath();
+            ctx.moveTo(startX + Math.round(2 * dpr), y);
+            ctx.lineTo(startX + Math.round(barW * 0.42), y);
+            ctx.stroke();
+
+            ctx.fillStyle = `rgba(${cr},${cg},${cb},0.60)`;
+            ctx.fillText(label, startX + barW * 0.73, y - 2 * dpr);
+        }
+
+        // Glow dot at current pitch (only while recording and pitch is detected)
+        if (!this.#isIdle && isFinite(this.#midi)) {
+            const yn = Math.max(0, Math.min(1, (this.#midi - this.#pitchMin) / this.#pitchRange));
+            const y  = Math.round(padV + innerH - yn * innerH);
+            const r  = Math.round(3.5 * dpr);
+
+            ctx.shadowColor = `rgba(${cr},${cg},${cb},0.95)`;
+            ctx.shadowBlur  = 10 * dpr;
+            ctx.fillStyle   = `rgb(${cr},${cg},${cb})`;
+            ctx.beginPath();
+            ctx.arc(startX + barW * 0.5, y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         ctx.restore();
     }
 
