@@ -131,7 +131,7 @@ export class WaveEngine {
 
     /**
      * Feed values each recording frame.
-     * @param {number} midi  Stability-gated, EMA-smoothed MIDI note (or NaN for silence)
+     * @param {number} midi  Filtered MIDI note from caller (or NaN for silence)
      * @param {number} rms   Raw RMS amplitude
      */
     frame(midi, rms) {
