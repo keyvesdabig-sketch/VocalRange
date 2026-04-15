@@ -222,8 +222,7 @@ export class WaveEngine {
         ctx.lineWidth   = Math.round(dpr);
 
         for (const { midi } of C_OCTAVES) {
-            const yn = (midi - this.#pitchMin) / this.#pitchRange;
-            const y  = padV + innerH - Math.round(yn * innerH);
+            const y = Math.round(this.#midiToY(midi, padV, innerH));
             ctx.beginPath();
             ctx.moveTo(0, y);
             ctx.lineTo(endX, y);
@@ -296,8 +295,7 @@ export class WaveEngine {
             const xf = (pt.t - (now - TRAIL_DURATION)) / TRAIL_DURATION;
             if (xf < 0 || xf > 1) continue;
             if (!isFinite(pt.midi)) { pts.push(null); continue; }
-            const yn = Math.max(0, Math.min(1, (pt.midi - this.#pitchMin) / this.#pitchRange));
-            pts.push({ x: startX + xf * trailW, y: padV + innerH - yn * innerH });
+            pts.push({ x: startX + xf * trailW, y: this.#midiToY(pt.midi, padV, innerH) });
         }
 
         if (pts.filter(Boolean).length < 2) return;
@@ -411,8 +409,7 @@ export class WaveEngine {
         ctx.textAlign = 'center';
 
         for (const { midi, label } of C_OCTAVES) {
-            const yn = (midi - this.#pitchMin) / this.#pitchRange;
-            const y  = Math.round(padV + innerH - yn * innerH);
+            const y = Math.round(this.#midiToY(midi, padV, innerH));
 
             ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.30)`;
             ctx.lineWidth   = Math.round(dpr);
@@ -456,6 +453,12 @@ export class WaveEngine {
 
     #ema(current, target, alpha) {
         return isNaN(current) ? target : current + alpha * (target - current);
+    }
+
+    /** Convert MIDI note → physical Y coordinate (high notes at top). */
+    #midiToY(midi, padV, innerH) {
+        const yn = Math.max(0, Math.min(1, (midi - this.#pitchMin) / this.#pitchRange));
+        return padV + innerH * (1 - yn);
     }
 
     /**
