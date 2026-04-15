@@ -456,7 +456,8 @@ export class WaveEngine {
         return isNaN(current) ? target : current + alpha * (target - current);
     }
 
-    /** Convert MIDI note → physical Y coordinate (high notes at top). */
+    /** Convert MIDI note → physical Y coordinate (high notes at top).
+     *  Caller is responsible for clamping midi to [pitchMin, pitchMax]. */
     #midiToY(midi, padV, innerH) {
         const yn = (midi - this.#pitchMin) / this.#pitchRange;
         return padV + innerH * (1 - yn);
