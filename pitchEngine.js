@@ -58,10 +58,9 @@ export function yin(buf, sampleRate) {
     const W         = buf.length >> 1;
     const TAU_MIN   = Math.max(2, Math.floor(sampleRate / 2000)); //  ~22 @44.1 kHz
     const TAU_MAX   = Math.min(W - 1, Math.ceil(sampleRate / 50)); // ~882 @44.1 kHz
-    const THRESHOLD = 0.12; // compromise: 0.10 missed bass fundamentals (A1–E2),
-                             // 0.15 caused octave-high errors (pseudo-min at τ/2 accepted).
-                             // 0.12 covers CMNDF minima of deep notes without opening
-                             // the octave-error window.
+    const THRESHOLD = 0.11; // 0.10 misses bass fundamentals (A1–E2).
+                             // 0.12 occasionally accepts pseudo-min at τ/2 → octave jumps.
+                             // 0.11 eliminates most octave errors without losing C2–E2.
 
     // ① Difference function
     const d = new Float32Array(W);

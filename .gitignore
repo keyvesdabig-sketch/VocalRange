@@ -16,3 +16,6 @@ Thumbs.db
 .claude/
 settings.local.json
 
+# Superpowers brainstorm sessions
+.superpowers/
+
