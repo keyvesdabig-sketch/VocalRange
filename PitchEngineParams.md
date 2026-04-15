@@ -45,7 +45,7 @@ Alle Stellschrauben der Audio-Analyse, geordnet nach Pipeline-Stufe.
 
 | Parameter | Wert | Effekt wenn erhöht | Effekt wenn gesenkt |
 |-----------|------|-------------------|-------------------|
-| `THRESHOLD` | `0.12` | Mehr Pitches werden erkannt (auch unsichere) → mehr Fehler | Strenger, seltener ein Ergebnis → Bass-Töne können verschwinden |
+| `THRESHOLD` | `0.11` | Mehr Pitches werden erkannt (auch unsichere) → mehr Fehler | Strenger, seltener ein Ergebnis → Bass-Töne können verschwinden |
 | `TAU_MIN` | `~22` @ 44.1 kHz | Höhere Minimalfrequenz | Tiefere Frequenzen erkennbar |
 | `TAU_MAX` | `~882` @ 44.1 kHz | Tiefere Minimalfrequenz (~50 Hz) | Schlechtere Bass-Erkennung |
 
@@ -56,10 +56,10 @@ Alle Stellschrauben der Audio-Analyse, geordnet nach Pipeline-Stufe.
 | TAU_MIN ≈ 22 | ~2000 Hz | C7 |
 | TAU_MAX ≈ 882 | ~50 Hz | G1 |
 
-> **Hinweis zu `THRESHOLD = 0.12`:** Der Wert ist ein Kompromiss.  
+> **Hinweis zu `THRESHOLD = 0.11`:** Der Wert ist ein Kompromiss.  
 > `0.10` → tiefe Töne (C2–E2) werden oft verpasst.  
-> `0.15` → Oktav-Fehler nehmen zu (falsche Minima bei τ/2 werden akzeptiert).  
-> `0.12` deckt tiefe CMNDF-Minima ab ohne das Oktavfehler-Fenster zu öffnen.
+> `0.12` → akzeptiert gelegentlich das Pseudo-Minimum bei τ/2 → Oktavsprünge.  
+> `0.11` eliminiert die meisten Oktavfehler ohne C2–E2 zu verlieren.
 
 ---
 

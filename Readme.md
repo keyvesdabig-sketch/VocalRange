@@ -33,13 +33,14 @@ VocalRange/
 ├── style.css                — Vocal Luminescence design system
 ├── manifest.json            — PWA manifest
 ├── favicon.svg              — Signal Wave icon
-├── sw.js                    — Service Worker (offline cache v4)
+├── sw.js                    — Service Worker (offline cache v2)
 ├── pitchEngine.js           — Pitch detection + SATB classification (ES module)
 └── js/
     ├── app.js               — SPA router (hash-based, tab navigation)
     ├── engines/
     │   ├── levelEngine.js       — RMS signal-level meter (Canvas)
-    │   └── pitchTrailEngine.js  — Scrolling pitch-history trail (Canvas)
+    │   ├── waveEngine.js        — Unified EQ + pitch trail + pitch bar (Canvas)
+    │   └── avatarEngine.js      — Audio-reactive avatar visualiser (Canvas)
     └── pages/
         ├── studio.js        — Studio page: recording + analysis
         ├── vitals.js        — Vitals page (stub)
@@ -80,22 +81,20 @@ engine.frame(rmsValue);   // call each animation frame
 engine.reset();            // call on recording start
 ```
 
-### `pitchTrailEngine.js` — Scrolling Pitch History
+### `waveEngine.js` — Unified Vocal Interface
 
-Circular-buffer trail with C-note grid, register-coloured line, and challenge mode support.
+One canvas, three zones: EQ spectrum bars (left), scrolling pitch trail (centre), pitch reference bar (right). Colour language is unified — violet→cyan gradient driven by MIDI pitch register.
 
 ```js
-const trail = new PitchTrailEngine(canvasElement, {
+const engine = new WaveEngine(canvasElement, {
     pitchMin: 36,   // MIDI C2
     pitchMax: 84,   // MIDI C6
 });
-trail.frame(midiNote);      // NaN = silence gap
-trail.setTarget(60);        // C4 as challenge target (Arena mode)
-trail.reset();
-const { isHit, semitones } = trail.getAccuracy();
+engine.setAnalyser(analyserNode);   // call on recording start
+engine.frame(midi, rms);            // call each animation frame; NaN midi = silence
+engine.clearAnalyser();             // call on recording stop (trail kept for review)
+engine.stop();                      // call on page cleanup (cancels internal RAF)
 ```
-
-See [`AudioVisual`](AudioVisual) for full engine documentation.
 
 ---
 
@@ -111,11 +110,11 @@ Microphone
   → EMA smoothing    (dot glide α=0.08, Hz display α=0.04)
   → Adaptive hysteresis (30–75 frames hold time)
   → LevelEngine.frame(rms)
-  → PitchTrailEngine.frame(medianMidi)
+  → WaveEngine.frame(midi, rms)
 ```
 
 - **RMS gate:** Silence / room noise (< 0.015) is ignored — no pitch, no trail dot
-- **YIN:** More octave-error resistant than autocorrelation (THRESHOLD = 0.12)
+- **YIN:** More octave-error resistant than autocorrelation (THRESHOLD = 0.11)
 - **Adaptive hold time:** 0.5 s for C2 (low), 1.25 s for C6 (high)
 
 ---
@@ -185,7 +184,7 @@ Personal best persisted in `localStorage` (`vc_best_st`).
 | 1 | Range Score + Tier System | ✅ Done |
 | 2 | SPA Architecture + Tab Navigation | ✅ Done |
 | 3 | Signal Level Engine (LevelEngine) | ✅ Done |
-| 4 | Pitch Trail Engine (PitchTrailEngine) | ✅ Done |
+| 4 | Unified Vocal Interface (WaveEngine: EQ + trail + pitch bar) | ✅ Done |
 | 5 | Universal SATB Voice Classification | ✅ Done |
 | 6 | Full SATB Pitch Range C2–C6 (48 ST) | ✅ Done |
 | 7 | UI Polish — Vocal Luminescence | ✅ Done |
