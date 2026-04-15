@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vocalrange-v1';
+const CACHE_NAME = 'vocalrange-v2';
 const ASSETS = [
     './',
     './index.html',
@@ -12,7 +12,8 @@ const ASSETS = [
     './js/pages/arena.js',
     './js/pages/profile.js',
     './js/engines/levelEngine.js',
-    './js/engines/pitchTrailEngine.js',
+    './js/engines/waveEngine.js',
+    './js/engines/avatarEngine.js',
 ];
 
 // Install: pre-cache all assets
