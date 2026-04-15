@@ -282,7 +282,7 @@ export function render(container) {
 
         if (rms < RMS_THRESHOLD) {
             stableCount = 0;
-            waveEngine.frame(NaN, rms, NaN);  // silence gap in trail + idle EQ
+            waveEngine.frame(NaN, rms);  // silence gap in trail
             animationFrameId = requestAnimationFrame(updatePitch);
             return;
         }
@@ -290,14 +290,9 @@ export function render(container) {
 
         const frequency = yin(yinBuffer, audioContext.sampleRate);
 
-        // trailMidi: median-filtered pitch, or NaN if no clean pitch detected
-        let trailMidi = NaN;
-
         if (frequency !== -1 && frequency > 50 && frequency < 2000) {
             const rawPitch = noteFromPitch(frequency);
             const medPitch = medianFilter.push(rawPitch);
-
-            trailMidi = medPitch; // feed median pitch to trail (no extra EMA)
 
             // Hz display — EMA smoothed
             displayFreq = ema(displayFreq, frequency, FREQ_LERP);
@@ -356,7 +351,7 @@ export function render(container) {
             stableCount = 0;
         }
 
-        waveEngine.frame(displayMidi ?? NaN, rms, trailMidi);     // trail + EQ
+        waveEngine.frame(displayMidi ?? NaN, rms);
         animationFrameId = requestAnimationFrame(updatePitch);
     }
 
@@ -493,6 +488,17 @@ export function render(container) {
             } else {
                 showError(`Setup error: ${err?.message ?? err}`);
             }
+            // Teardown any partially initialised audio resources to avoid
+            // exhausting the browser's concurrent AudioContext limit on
+            // repeated failed attempts.
+            if (audioContext && audioContext.state !== 'closed') { audioContext.close(); }
+            audioContext = null;
+            if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+            microphone   = null;
+            analyser     = null;
+            specAnalyser = null;
+            isRecording  = false;
+            waveEngine.clearAnalyser();
         }
     });
 

@@ -26,7 +26,7 @@
  *   new WaveEngine(canvasEl, { pitchMin, pitchMax })
  *   .setAnalyser(node)                    — attach AnalyserNode (recording start)
  *   .clearAnalyser()                      — detach (recording stop → idle)
- *   .frame(smoothedMidi, rms, trailMidi)  — feed each RAF frame
+ *   .frame(midi, rms)                     — feed each RAF frame
  *   .reset()                              — signal idle
  *   .stop()                               — cancel internal RAF (page cleanup)
  */
@@ -131,21 +131,20 @@ export class WaveEngine {
 
     /**
      * Feed values each recording frame.
-     * @param {number} smoothedMidi  EMA-smoothed MIDI (colour)
-     * @param {number} rms           Raw RMS amplitude
-     * @param {number} [trailMidi]   Median-filtered MIDI for trail (or NaN for gap)
+     * @param {number} midi  Stability-gated, EMA-smoothed MIDI note (or NaN for silence)
+     * @param {number} rms   Raw RMS amplitude
      */
-    frame(smoothedMidi, rms, trailMidi = NaN) {
-        const silent = !isFinite(smoothedMidi) || rms < RMS_GATE;
+    frame(midi, rms) {
+        const silent = !isFinite(midi) || rms < RMS_GATE;
         if (!silent) {
             this.#midi = isFinite(this.#midi)
-                ? this.#ema(this.#midi, smoothedMidi, 0.08)
-                : smoothedMidi;
+                ? this.#ema(this.#midi, midi, 0.08)
+                : midi;
         }
         // Accumulate trail only while recording
         if (this.#analyser) {
             const now = performance.now();
-            this.#trail.push({ midi: isFinite(trailMidi) ? trailMidi : NaN, t: now });
+            this.#trail.push({ midi: isFinite(midi) ? midi : NaN, t: now });
             const cutoff = now - TRAIL_DURATION;
             let lo = 0, hi = this.#trail.length;
             while (lo < hi) { const mid = (lo + hi) >> 1; if (this.#trail[mid].t < cutoff) lo = mid + 1; else hi = mid; }
@@ -346,15 +345,35 @@ export class WaveEngine {
 
         ctx.globalAlpha = 1;
 
-        // ── D: Glowing endpoint dot at the newest valid point ──────
+        // ── D: Merged endpoint dot — sits at the exact trail/bar boundary ─
         const lastPt = [...pts].reverse().find(Boolean);
         if (lastPt && !this.#isIdle) {
-            ctx.shadowColor = `rgba(${cr},${cg},${cb},0.95)`;
-            ctx.shadowBlur  = 14 * dpr;
-            ctx.fillStyle   = `rgb(${cr},${cg},${cb})`;
+            const dotX = startX + trailW; // exact boundary, not lastPt.x
+            const dotY = lastPt.y;
+            const r    = 7 * dpr;
+
+            ctx.save();
+            // Outer glow ring
+            ctx.shadowColor = `rgba(${cr},${cg},${cb},0.80)`;
+            ctx.shadowBlur  = 18 * dpr;
+            ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.35)`;
+            ctx.lineWidth   = 1.5 * dpr;
             ctx.beginPath();
-            ctx.arc(lastPt.x, lastPt.y, 3.5 * dpr, 0, Math.PI * 2);
+            ctx.arc(dotX, dotY, r + 5 * dpr, 0, Math.PI * 2);
+            ctx.stroke();
+            // Main dot
+            ctx.shadowBlur = 16 * dpr;
+            ctx.fillStyle  = `rgb(${cr},${cg},${cb})`;
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, r, 0, Math.PI * 2);
             ctx.fill();
+            // Bright inner core
+            ctx.shadowBlur = 0;
+            ctx.fillStyle  = 'rgba(255, 255, 255, 0.90)';
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, r * 0.45, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
         }
 
         ctx.restore();
@@ -406,19 +425,7 @@ export class WaveEngine {
             ctx.fillText(label, startX + barW * 0.73, y - 2 * dpr);
         }
 
-        // Glow dot at current pitch (only while recording and pitch is detected)
-        if (!this.#isIdle && isFinite(this.#midi)) {
-            const yn = Math.max(0, Math.min(1, (this.#midi - this.#pitchMin) / this.#pitchRange));
-            const y  = Math.round(padV + innerH - yn * innerH);
-            const r  = Math.round(3.5 * dpr);
-
-            ctx.shadowColor = `rgba(${cr},${cg},${cb},0.95)`;
-            ctx.shadowBlur  = 10 * dpr;
-            ctx.fillStyle   = `rgb(${cr},${cg},${cb})`;
-            ctx.beginPath();
-            ctx.arc(startX + barW * 0.5, y, r, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        // Dot removed — merged into the trail endpoint dot at the trail/bar boundary.
 
         ctx.restore();
     }
