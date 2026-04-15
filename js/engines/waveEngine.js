@@ -295,7 +295,8 @@ export class WaveEngine {
             const xf = (pt.t - (now - TRAIL_DURATION)) / TRAIL_DURATION;
             if (xf < 0 || xf > 1) continue;
             if (!isFinite(pt.midi)) { pts.push(null); continue; }
-            pts.push({ x: startX + xf * trailW, y: this.#midiToY(pt.midi, padV, innerH) });
+            const midi = Math.max(this.#pitchMin, Math.min(this.#pitchMax, pt.midi));
+            pts.push({ x: startX + xf * trailW, y: this.#midiToY(midi, padV, innerH) });
         }
 
         if (pts.filter(Boolean).length < 2) return;
@@ -457,7 +458,7 @@ export class WaveEngine {
 
     /** Convert MIDI note → physical Y coordinate (high notes at top). */
     #midiToY(midi, padV, innerH) {
-        const yn = Math.max(0, Math.min(1, (midi - this.#pitchMin) / this.#pitchRange));
+        const yn = (midi - this.#pitchMin) / this.#pitchRange;
         return padV + innerH * (1 - yn);
     }
 
