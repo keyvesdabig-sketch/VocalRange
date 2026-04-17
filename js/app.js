@@ -30,7 +30,8 @@ async function navigate() {
     }
 
     const hash = (location.hash.slice(1) || 'studio').toLowerCase();
-    const render = ROUTES[hash] ?? ROUTES.studio;
+    const routeKey = ROUTES[hash] ? hash : 'studio';
+    const render = ROUTES[routeKey];
     const app = document.getElementById('app');
 
     // Clear previous content
@@ -40,7 +41,7 @@ async function navigate() {
     currentCleanup = render(app) ?? null;
 
     // Sync nav tab active state
-    updateNav(hash);
+    updateNav(routeKey);
 }
 
 function updateNav(activeKey) {

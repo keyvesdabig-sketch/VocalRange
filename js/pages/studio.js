@@ -200,6 +200,7 @@ export function render(container) {
     let micStream       = null;
     let yinBuffer       = null;
     let isRecording     = false;
+    let setupInProgress = false;
     let animationFrameId;
     let minPitch        = Infinity;
     let maxPitch        = -Infinity;
@@ -241,6 +242,10 @@ export function render(container) {
     function showError(msg) {
         errorMessage.textContent = msg;
         errorBox.classList.remove('hidden');
+    }
+
+    function hasCompleteRange() {
+        return minPitch !== Infinity && maxPitch !== -Infinity && maxPitch >= minPitch;
     }
 
     // ── Piano keys (rendered once) ────────────────────────────
@@ -322,7 +327,6 @@ export function render(container) {
                 minPitch = stableNote;
                 minNoteDisplay.textContent = noteNameFromPitch(stableNote);
                 setMarker(minMarker, overlayBottom, stableNote, false);
-                stopBtn.disabled = false;
                 // Lock-in animation
                 minNoteDisplay.classList.remove('locked');
                 void minNoteDisplay.offsetWidth;
@@ -345,6 +349,7 @@ export function render(container) {
                     rangeInterval.textContent = st + ' ST';
                     instructionText.textContent = 'Range locked — press Analyze whenever you\'re ready.';
                     instructionText.className = 'canvas-hint hint--complete';
+                    stopBtn.disabled = false;
                 }
             }
         } else {
@@ -406,16 +411,28 @@ export function render(container) {
     // ── Stop recording (also used as cleanup) ─────────────────
     function stopRecording() {
         isRecording = false;
+        setupInProgress = false;
         frequencyDisplay.classList.remove('active');
         if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
         if (microphone) { try { microphone.disconnect(); } catch { /* noop */ } }
         if (audioContext && audioContext.state !== 'closed') audioContext.close();
+        audioContext = null;
+        analyser = null;
+        specAnalyser = null;
+        microphone = null;
+        lowShelf = null;
+        highShelf = null;
+        yinBuffer = null;
         cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
         waveEngine.clearAnalyser(); // back to idle breathing
     }
 
     // ── Button handlers ───────────────────────────────────────
     startBtn.addEventListener('click', async () => {
+        if (isRecording || setupInProgress) return;
+        setupInProgress = true;
+        startBtn.disabled = true;
         errorBox.classList.add('hidden');
         resultBox.classList.add('hidden');
         minPitch = Infinity;
@@ -462,6 +479,7 @@ export function render(container) {
 
             pitchBarHeight = pitchBar.offsetHeight;
             isRecording    = true;
+            setupInProgress = false;
             frequencyDisplay.classList.add('active');
             medianFilter.reset();
             stableNote      = null;
@@ -495,14 +513,24 @@ export function render(container) {
             audioContext = null;
             if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
             microphone   = null;
+            lowShelf     = null;
+            highShelf    = null;
             analyser     = null;
             specAnalyser = null;
+            yinBuffer    = null;
             isRecording  = false;
+            setupInProgress = false;
             waveEngine.clearAnalyser();
+        } finally {
+            startBtn.disabled = false;
         }
     });
 
     stopBtn.addEventListener('click', () => {
+        if (!hasCompleteRange()) {
+            showError('Please capture both your lowest and highest stable note before analyzing.');
+            return;
+        }
         stopRecording();
         hideDot();
         pitchDot.classList.remove('silent');
