@@ -1,8 +1,8 @@
-# VocalRange – Design System: Vocal Luminescence
+# VocalRange – Design System: Editorial Precision
 
-> Version: 2.2 · Last updated: 2026-04-12
+> Version: 3.0 · Last updated: 2026-04-16
 
-The "Vocal Luminescence" system treats the interface as a **glowing stage**. Everything lives in deep space-violet darkness. Colour only exists where meaning lives — pitch, data, and action. There are no hard lines; tonal stacking and glow replace borders.
+"Editorial Precision" treats the interface as a **gallery, not a utility**. Inspired by the "Timeless Curator" ethos of high-end editorial design — architecture of silence, intentional spacing, and typography as the primary visual gesture. Depth is achieved through tonal layering, not borders or glow.
 
 ---
 
@@ -10,127 +10,163 @@ The "Vocal Luminescence" system treats the interface as a **glowing stage**. Eve
 
 ```css
 :root {
-    /* ── Core ─────────────────────────────── */
-    --bg:         #160625;   /* Deep Midnight Purple — the stage */
-    --primary:    #b6a0ff;   /* Electric Violet — focal colour */
-    --secondary:  #00f1fe;   /* Cyan Glow — high notes, actions */
-    --tertiary:   #ffe792;   /* Gold — prestige / challenge hit only */
-    --red:        #ff6b8a;   /* Error · Low marker · REC dot */
-    --on-surface: #f3deff;   /* Violet-tinted white */
+    /* ── Surface Stack (Tonal Gravity) ───────────────── */
+    --surface:                  #08080A;   /* Base canvas — near black, warm */
+    --surface-container-high:   #0D0B09;   /* Anchored elements (nav) */
+    --surface-container:        #141210;   /* General sections */
+    --surface-container-low:    #1C1916;   /* Cards — slight lift */
+    --surface-container-lowest: #262119;   /* Most elevated / interactive */
+    --surface-recess:           #050503;   /* Deepest inset */
 
-    /* ── Text ────────────────────────────── */
-    --text-hi:  #f3deff;     /* Headings, values */
-    --text-mid: #9b85c4;     /* Body, labels */
-    --text-lo:  #4a3570;     /* Decorative / barely-there */
+    /* ── Text (Champagne Hierarchy) ──────────────────── */
+    --on-surface:     #EDE5D8;   /* Warm champagne — primary */
+    --on-surface-mid: #8A8178;   /* Mid emphasis */
+    --on-surface-low: #47433C;   /* Low / disabled */
+    --on-primary:     #08080A;   /* Text on champagne CTA button */
+
+    /* ── Accent ───────────────────────────────────────── */
+    --champagne:  #E9E1D3;   /* Structural warm white / CTA bg */
+    --gold:       #C8965A;   /* Low / min note — warm amber */
+    --steel:      #7AAFC4;   /* High / max note — cool steel */
+    --error:      #B87878;   /* Muted rose error */
 }
 ```
 
-### Usage Rules
+### Token Usage
 
 | Token | Where used |
 |---|---|
-| `--bg` | Page background only |
-| `--primary` | Headings, active nav, pitch dot, primary buttons |
-| `--secondary` | Highest note marker, Hz display, C4 reference label |
-| `--tertiary` | Challenge hit state (gold trail), record badge — **never decorative** |
-| `--red` | Lowest note marker, error states, REC indicator |
-| `--text-lo` | Background-level decorative text only |
+| `--surface` | Page background only |
+| `--surface-container-low` | Main card background |
+| `--surface-container` | Range row, result box, measure cards |
+| `--surface-container-lowest` | Ghost/secondary buttons, elevated interactive elements |
+| `--surface-recess` | Wave canvas background, deepest inset areas |
+| `--champagne` | Primary CTA button background, structural white |
+| `--on-surface` | All primary text |
+| `--on-surface-mid` | Labels, secondary text, default note display |
+| `--on-surface-low` | Section labels (UPPERCASE), disabled states |
+| `--gold` | Min / low note indicator, record badge |
+| `--steel` | Max / high note indicator, C4 reference label |
+| `--error` | Error states only |
+
+---
+
+## The "No-Line" Rule
+
+**Explicit instruction:** 1px solid borders are prohibited for structural separation. Boundaries must be communicated through:
+
+1. **Background tonal shifts** — a `--surface-container-low` section on a `--surface` background is sufficient to indicate a new area
+2. **Negative space** — generous padding separates ideas without boxing them
+3. **Ghost borders** (fallback only) — `box-shadow: 0 0 0 1px rgba(237,229,216,0.05) inset` — felt, not seen
+
+The only explicit `border` in use is the nav top-border at 5% opacity, and the score section divider at 6% opacity — both below the threshold of visual prominence.
 
 ---
 
 ## Surface Stack
 
-Three tonal layers — no hard borders, stacking only.
-
 ```
-Layer 0 — Background:  #160625  (page base)
-Layer 1 — The Stage:   rgba(30, 8, 55, 0.50)   --surf-card   ← main card
-Layer 2 — Component:   rgba(58, 20, 90, 0.60)  --surf-comp   ← result box
-Layer 3 — Recess:      rgba(0,  0,  0,  0.40)  --surf-recess ← inputs, trail canvas
+Layer 0 — Base:        #08080A   --surface              ← page background
+Layer 1 — Anchored:    #0D0B09   --surface-container-high   ← nav backdrop base
+Layer 2 — Section:     #141210   --surface-container    ← range row, result box
+Layer 3 — Card:        #1C1916   --surface-container-low    ← main card
+Layer 4 — Elevated:    #262119   --surface-container-lowest ← buttons, interactive
+Layer 5 — Recess:      #050503   --surface-recess       ← wave canvas, inputs
 ```
 
-Glassmorphism parameters per layer:
-- **Card:** `backdrop-filter: blur(28px)` · `box-shadow: 0 40px 100px rgba(24,0,76,0.55)`
-- **Result box:** `backdrop-filter: blur(40px)`
-- **No explicit borders** — use `box-shadow: 0 0 0 1px rgba(182,160,255,0.08) inset` instead
+No `backdrop-filter` or glassmorphism on content cards — solid tonal backgrounds only. The bottom navigation is the sole glassmorphism element (`backdrop-filter: blur(32px)`).
 
 ---
 
 ## Typography
 
-| Role | Font | Size | Weight |
-|---|---|---|---|
-| App name / large headings | Space Grotesk | 30–34px | 700 |
-| Voice type result | Space Grotesk | 34px | 700 |
-| Score number | Space Grotesk | 40px | 700 |
-| Section labels | Manrope | 9px | 700 · UPPERCASE · 0.1em tracking |
-| Body / instruction text | Manrope | 13px | 400 |
-| Hz / note display | Manrope | 12–22px | 700 · tabular-nums |
-| Button | Space Grotesk | 13px | 700 · UPPERCASE · 0.07em tracking |
+| Role | Font | Size | Weight | Notes |
+|---|---|---|---|---|
+| App name | Noto Serif | 21px | 600 | Header, letter-spacing −0.02em |
+| Voice type result | Noto Serif | 48px | 600 | Editorial hero moment |
+| Score number | Noto Serif | 48px | 600 | Tabular-nums via font-variant |
+| Captured note (range row) | Noto Serif | 24px | 600 | Minimal, authoritative |
+| Personal best | Noto Serif | 22px | 600 | |
+| Section labels | Inter | 9px | 600 | ALL CAPS · 0.12–0.14em tracking |
+| Body / instruction text | Inter | 12px | 400 | Italic in idle/hint state |
+| Hz display | Inter | 24px | 300 | Tabular-nums · 0.04em tracking |
+| Button | Inter | 11px | 600 | ALL CAPS · 0.1em tracking |
 
-**Gradient text** (headings, voice type):
-```css
-background: linear-gradient(135deg, var(--primary), var(--secondary));
--webkit-background-clip: text;
--webkit-text-fill-color: transparent;
-```
+**No gradient text.** All text uses solid `--champagne` or the scale below. Noto Serif's weight and size alone carry the editorial authority.
+
+**Pairing logic:** Noto Serif = *curated data moments* (what the app found). Inter = *functional interface* (what the user does).
 
 ---
 
 ## Component Patterns
 
-### Glassmorphism Card (`.mainCard`)
+### Main Card (`#mainCard`)
 ```css
-background: var(--surf-card);
-backdrop-filter: blur(28px);
-border-radius: var(--radius);          /* 2rem = 32px */
-box-shadow:
-    0 0 0 1px rgba(182,160,255,0.08) inset,
-    0 40px 100px rgba(24,0,76,0.55),
-    0 0 60px rgba(182,160,255,0.04);
+background: var(--surface-container-low);
+border-radius: 0.375rem;                    /* 6px — editorial precision */
+box-shadow: 0 48px 120px rgba(8, 7, 5, 0.65);  /* ambient, warm-tinted */
+/* No backdrop-filter, no inset glow borders */
 ```
 
-### Pill Buttons
-- **Primary:** `background: linear-gradient(135deg, #b6a0ff, #8b6fe8)` · dark text `#0a0020`  
-  Idle state: `animation: btn-idle 3s ease-in-out infinite` (soft glow pulse)
-- **Ghost:** `background: rgba(0,241,254,0.05)` · `box-shadow: 0 0 0 1px rgba(0,241,254,0.2) inset`
-- Both: `border-radius: 9999px`
+### Buttons — Tactile Signature
+- **Primary:** `background: var(--champagne)` · `color: var(--on-primary)` · `border-radius: 0.125rem` (2px cut-diamond)
+  - Hover: `background: var(--on-surface)` · `transform: scale(1.01)`
+  - No idle shimmer animation — editorial restraint
+- **Ghost:** `background: var(--surface-container-lowest)` · ghost border inset at 8% opacity
+  - Hover: border opacity → 18%, text → `--champagne`
+- Both: `font: 11px Inter 600 · uppercase · 0.1em tracking`
 
-### Mini Cards (measure-card, stub-features li)
+### Range Row
 ```css
-background: var(--surf-recess);
-border-radius: var(--radius-xs);   /* 0.75rem = 12px */
-box-shadow: inset 0 0 20px rgba(182,160,255,0.04);
+background: var(--surface-container);      /* tonal shift — no border */
+border-radius: 0.375rem;
+padding: 16px 20px;
 ```
+Note values in Noto Serif 24px/600 — champagne on lock, gold for min, steel for max.
 
-### Pitch Bar — C2 to C6
+### Result Box — The Editorial Reveal
 ```css
-background: linear-gradient(to top,
-    #18004c  0%,     /* Deep violet — bass register */
-    #b6a0ff 55%,     /* Electric Violet — midrange */
-    #00f1fe 100%     /* Cyan Glow — treble / soprano */
+background: var(--surface-container);
+border-radius: 0.375rem;
+padding: 24px;
+/* Voice type in Noto Serif 48px/600 — the gallery label */
+```
+Score section divided by a 1px ghost line at 6% opacity.
+
+### Pitch Bar (C2–C6)
+```css
+background: linear-gradient(
+    to top,
+    #1A0C00  0%,    /* Deep amber — bass register */
+    #C8965A 50%,    /* Warm gold — midrange */
+    #7AAFC4 100%    /* Cool steel — treble / soprano */
 );
 ```
-- Note labels: `rgba(182, 160, 255, 0.38)` — C4 labelled in cyan `rgba(0,241,254,0.65)` with glow
-- Min marker: `--red` · Max marker: `--secondary`
+- Note labels: `--on-surface-low` — C4 in `--steel` (reference)
+- Min marker: `--gold` · Max marker: `--steel`
+- No box-shadow glow on markers
 
-### Trail Canvas (PitchTrailEngine)
-- Background: `rgba(10, 5, 25, 0.88)` — very dark violet-tinted
-- CSS static grid visible in idle state (C3/C4/C5 reference lines via `linear-gradient`)
-- Left-edge fade via `::after` pseudo-element (oldest trail data fades out)
-- Trail line colour is register-dependent (bass=violet, mid=primary, treble=cyan)
+### Wave Canvas (WaveEngine)
+- Background: `--surface-recess` (`#050503`)
+- Trail colour: amber (`#7A4E20`) → warm gold (`#C8965A`) → champagne (`#D4BEA0`) → steel (`#7AAFC4`) — driven by MIDI pitch register
+- Pitch bar gradient (right zone): same four-stop amber→steel palette at 20–28% opacity
+- Grid lines: `rgba(237,229,216,0.10)` (neutral champagne, not coloured)
+- EQ bars: tinted with live pitch colour at 25–55% opacity
+- Endpoint dot: champagne core with pitch-coloured glow ring
 
-### Level Meter (LevelEngine)
-- 8px pill-shaped track, `border-radius: 999px`
-- Gradient fill: `#6b3fa0` → `#b6a0ff` → `#00f1fe`
-- Peak-hold marker: thin white bar that decays slowly
-
-### REC Indicator
+### Bottom Navigation
 ```css
-background: rgba(255, 107, 138, 0.07);
-box-shadow: 0 0 0 1px rgba(255,107,138,0.15) inset;
+background: rgba(8, 8, 10, 0.80);
+backdrop-filter: blur(32px);
+border-top: 1px solid rgba(237, 229, 216, 0.05);  /* ghost border */
 ```
-- Dot: `animation: rec-pulse 1.1s ease-in-out infinite` (scale + opacity)
+- Active tab: `--champagne` — no glow, no drop-shadow
+- Inactive: `--on-surface-low` → `--on-surface-mid` on hover
+
+### Stub Pages
+- Title in Noto Serif 44px/600 — same editorial authority as results
+- Feature list items: `--surface-container-low` background, no border, no shadow
+- Badge chip: `--surface-container` bg, sharp 2px corners, 9px Inter ALL CAPS
 
 ---
 
@@ -138,62 +174,70 @@ box-shadow: 0 0 0 1px rgba(255,107,138,0.15) inset;
 
 | Token | Value | Used for |
 |---|---|---|
-| `--radius` | `2rem` (32px) | Main card corners |
-| `--radius-sm` | `1.5rem` (24px) | Result box |
-| `--radius-xs` | `0.75rem` (12px) | Mini cards, trail canvas, level bar container |
-| `999px` | — | Pill buttons, badge pills, level track |
+| `--radius` | `0.125rem` (2px) | Buttons, badges, chips — cut-diamond precision |
+| `--radius-sm` | `0.375rem` (6px) | Cards, canvas wraps, panels |
+| `--radius-xs` | `0.625rem` (10px) | Reserved for inset elements |
+
+No `border-radius: 9999px` pill shapes. Fully rounded elements feel playful — this system demands precision.
 
 ---
 
-## Motion & Animation Principles
+## Motion Principles
 
-1. **Page entrance:** `page-in` — 0.22s ease-out, 8px translateY
-2. **Button shimmer (idle):** `btn-idle` — 3s ease-in-out infinite, glow box-shadow pulse
-3. **REC dot:** `rec-pulse` — 1.1s ease-in-out infinite, scale 1 → 0.65
-4. **Pitch dot:** EMA glide (α = 0.08), transition `opacity 0.2s`
-5. **Markers / overlays:** `transition: bottom/height 0.15s–0.35s ease-out`
-6. **Result box entrance:** `fade-up` — 0.3s ease-out, 7px translateY
-7. **Record badge:** `record-pulse` — 0.45s ease-in-out × 5
+1. **Page entrance:** `page-in` — 0.28s opacity fade only (no translateY — editorial stillness)
+2. **No button idle animation** — shimmer/pulse removed; the champagne CTA speaks for itself
+3. **Note lock:** `note-lock` — 0.35s spring (`cubic-bezier(0.34, 1.56, 0.64, 1)`) scale burst
+4. **Result entrance:** `fade-up` — 0.3s, 6px translateY
+5. **Pitch dot:** EMA glide (α=0.08), `opacity 0.2s` transition
+6. **Markers / overlays:** `transition: 0.15s–0.35s ease-out`
+7. **Record badge:** `record-pulse` — 0.45s × 5, subtle scale 1.04
 
-**Rule:** Animations are functional or celebratory — never decorative noise.
+**Rule:** Motion is functional or celebratory — never ambient. A still interface is authoritative.
+
+---
+
+## Background Treatment
+
+```css
+body {
+    background: var(--surface);
+    background-image: radial-gradient(ellipse 80% 60% at 50% 0%,
+        rgba(200, 150, 90, 0.035) 0%,
+        transparent 70%);
+}
+```
+
+A near-invisible warm glow at the top centre — the "light source" from above. No animated blobs, no coloured gradients. The `.bg-blob` elements remain in HTML but are `display: none`.
 
 ---
 
 ## Layout
 
 ### Desktop (> 620px)
-- Two-column grid: `220px 1fr` — left = pitch meter, right = controls
-- Card `max-width: 880px`, centered with `#app` flex
+- Single-column `studio-layout`, max-width 680px, centred
+- `gap: 18px` between sections — not 8px "app-like" tight spacing
+- Card padding: `28px 28px 32px`
 
 ### Mobile (≤ 620px)
-- Single column — pitch column becomes horizontal strip (140px tall)
-- Piano keys still visible; pitch bar horizontal-ish
-- Controls stack vertically below
+- Padding reduces to `18px 18px 24px`
+- Wave canvas height: 260px (from 320px)
+- Gap reduces to `14px`
 
 ### Bottom Navigation
-- Fixed `72px` bar, `border-radius: 2rem 2rem 0 0`
-- Glass: `backdrop-filter: blur(24px)` · subtle top border shadow
-- Active tab: `--primary` colour + `drop-shadow(0 0 6px rgba(182,160,255,0.65))` on icon
+- Fixed `68px` bar (from 72px — tighter, more precise)
+- No rounded top corners — flat edge, professional
 
 ---
 
-## Background Blobs
-
-```html
-<div class="bg-blob bg-blob--violet"></div>  <!-- top-left radial -->
-<div class="bg-blob bg-blob--cyan"></div>    <!-- bottom-right radial -->
-<div class="bg-blob bg-blob--deep"></div>    <!-- soft centre glow -->
-```
-Static — never animated. Provides depth without distraction.
-
----
-
-## Design Do's and Don'ts
+## Do's and Don'ts
 
 | ✅ Do | ❌ Don't |
 |---|---|
-| Use tonal stacking for depth | Use explicit borders or dividers |
-| Use glow (`box-shadow`, `text-shadow`) for emphasis | Use hard contrasting backgrounds |
-| Use `--tertiary` (gold) sparingly for achievement only | Use gold as a generic accent |
-| Use gradient text for major headings | Use gradient text on body copy |
-| Keep animation < 0.4s for transitions | Add animations that don't convey meaning |
+| Use tonal surface shifts for depth | Use 1px solid structural borders |
+| Use Noto Serif for every data reveal | Mix display fonts across headings |
+| Give elements room to breathe — add 24px if unsure | Crowd elements with 8px gaps |
+| Use `--champagne` as the single structural white | Use multiple accent colours |
+| Use ghost borders (< 10% opacity) as last resort | Use drop-shadows or box-shadow glows |
+| Keep animations under 0.35s | Add decorative idle animations |
+| Use sharp corners (2px) for interactive elements | Use `border-radius: 9999px` pill buttons |
+| Let negative space do the heavy lifting | Fill every pixel with content |

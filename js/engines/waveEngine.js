@@ -384,11 +384,11 @@ export class WaveEngine {
         ctx.save();
 
         // Dark background
-        ctx.fillStyle = 'rgba(8,6,24,0.60)';
+        ctx.fillStyle = 'rgba(5, 5, 3, 0.68)';
         ctx.fillRect(startX, 0, barW, h);
 
         // Left separator line
-        ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.18)`;
+        ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.14)`;
         ctx.lineWidth   = Math.round(dpr);
         ctx.setLineDash([]);
         ctx.beginPath();
@@ -396,12 +396,12 @@ export class WaveEngine {
         ctx.lineTo(startX, padV + innerH);
         ctx.stroke();
 
-        // Vertical gradient representing the full pitch range
+        // Vertical gradient — amber (low) → champagne → steel (high)
         const grad = ctx.createLinearGradient(0, padV + innerH, 0, padV);
-        grad.addColorStop(0.00, 'rgba(139, 92,246,0.32)');
-        grad.addColorStop(0.33, 'rgba(182,160,255,0.28)');
-        grad.addColorStop(0.66, 'rgba(129,140,248,0.24)');
-        grad.addColorStop(1.00, 'rgba(  0,241,254,0.30)');
+        grad.addColorStop(0.00, 'rgba(122,  78,  32, 0.28)');
+        grad.addColorStop(0.40, 'rgba(200, 150,  90, 0.24)');
+        grad.addColorStop(0.72, 'rgba(212, 190, 160, 0.20)');
+        grad.addColorStop(1.00, 'rgba(122, 175, 196, 0.26)');
         ctx.fillStyle = grad;
         ctx.fillRect(startX + Math.round(dpr), padV, barW - Math.round(dpr), innerH);
 
@@ -464,18 +464,18 @@ export class WaveEngine {
     }
 
     /**
-     * Pitch → RGB colour:
-     *   0.00 → #8b5cf6  deep violet (bass)
-     *   0.33 → #b6a0ff  electric violet (baritone)
-     *   0.66 → #818cf8  indigo (tenor/alto)
-     *   1.00 → #00f1fe  cyan (soprano)
+     * Pitch → RGB colour (Editorial Precision palette):
+     *   0.00 → #7A4E20  deep amber (bass)
+     *   0.40 → #C8965A  warm gold (baritone/tenor)
+     *   0.72 → #D4BEA0  champagne (alto)
+     *   1.00 → #7AAFC4  cool steel (soprano)
      */
     #pitchRGB(norm) {
         const stops = [
-            [0.00, 139,  92, 246],
-            [0.33, 182, 160, 255],
-            [0.66, 129, 140, 248],
-            [1.00,   0, 241, 254],
+            [0.00, 122,  78,  32],
+            [0.40, 200, 150,  90],
+            [0.72, 212, 190, 160],
+            [1.00, 122, 175, 196],
         ];
         for (let i = 0; i < stops.length - 1; i++) {
             const [n0, r0, g0, b0] = stops[i];

@@ -30,7 +30,7 @@ VocalRange is a vanilla JS SPA without a build step.
 ```
 VocalRange/
 ├── index.html               — App shell, service worker registration
-├── style.css                — Vocal Luminescence design system
+├── style.css                — Editorial Precision design system
 ├── manifest.json            — PWA manifest
 ├── favicon.svg              — Signal Wave icon
 ├── sw.js                    — Service Worker (offline cache v2)
@@ -73,7 +73,7 @@ See [`PitchEngineParams.md`](PitchEngineParams.md) for full parameter documentat
 
 ### `levelEngine.js` — Signal Level Meter
 
-Horizontal RMS peak-hold meter with Vocal Luminescence gradient.
+Horizontal RMS peak-hold meter with Editorial Precision amber→steel gradient.
 
 ```js
 const engine = new LevelEngine(canvasElement);
@@ -83,7 +83,7 @@ engine.reset();            // call on recording start
 
 ### `waveEngine.js` — Unified Vocal Interface
 
-One canvas, three zones: EQ spectrum bars (left), scrolling pitch trail (centre), pitch reference bar (right). Colour language is unified — violet→cyan gradient driven by MIDI pitch register.
+One canvas, three zones: EQ spectrum bars (left), scrolling pitch trail (centre), pitch reference bar (right). Colour language is unified — amber→champagne→steel gradient driven by MIDI pitch register.
 
 ```js
 const engine = new WaveEngine(canvasElement, {
@@ -135,18 +135,18 @@ Classification is based on the **centre of the measured range** (minPitch + maxP
 
 ---
 
-## Design system — Vocal Luminescence
+## Design system — Editorial Precision
 
 See [`Design.md`](Design.md) for the full design system specification.
 
 **Quick reference:**
-- **Base:** `#160625` Deep Midnight Purple
-- **Primary:** `#b6a0ff` Electric Violet
-- **Secondary:** `#00f1fe` Cyan Glow
-- **Tertiary:** `#ffe792` Gold (prestige only)
-- **Typography:** Space Grotesk (display) · Manrope (body)
-- **Pitch bar:** MIDI 36 (C2) – 84 (C6), 48 semitones, Deep Violet → Electric Violet → Cyan
-- **Piano overlay:** Decorative key markers both sides of bar
+- **Base:** `#08080A` Near-black warm canvas
+- **Champagne:** `#E9E1D3` Structural white · primary CTA
+- **Gold:** `#C8965A` Warm amber — low/min note
+- **Steel:** `#7AAFC4` Cool steel — high/max note
+- **Typography:** Noto Serif (display / data reveals) · Inter (labels / UI)
+- **Pitch bar:** MIDI 36 (C2) – 84 (C6), 48 semitones, Deep Amber → Warm Gold → Cool Steel
+- **No borders:** Structural separation via tonal surface shifts only
 
 ---
 
@@ -187,7 +187,8 @@ Personal best persisted in `localStorage` (`vc_best_st`).
 | 4 | Unified Vocal Interface (WaveEngine: EQ + trail + pitch bar) | ✅ Done |
 | 5 | Universal SATB Voice Classification | ✅ Done |
 | 6 | Full SATB Pitch Range C2–C6 (48 ST) | ✅ Done |
-| 7 | UI Polish — Vocal Luminescence | ✅ Done |
+| 7 | UI Polish — Vocal Luminescence (v2.2) | ✅ Done |
+| 7.1 | Design Redesign — Editorial Precision (v3.0) | ✅ Done |
 | 8 | Arena: Target Note Challenges | 🔲 Next |
 | 9 | Progress History (sparkline, last N runs) | 🔲 Planned |
 | 10 | Achievement System (unlockable badges) | 🔲 Planned |
